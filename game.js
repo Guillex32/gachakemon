@@ -1120,16 +1120,29 @@ const OnlineManager = {
     },
 
     getPeerOptions() {
-        // Sin servidor de señalización propio, API key, cuenta ni TURN.
-        // Al omitir host/key, PeerJS utiliza PeerJS Cloud (0.peerjs.com).
-        // STUN permite establecer conexiones directas cuando la red lo admite.
         return {
             debug: 2,
             config: {
                 sdpSemantics: 'unified-plan',
                 iceServers: [
                     { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' }
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    // Servidores TURN de relevo para saltar restricciones de NAT y móviles:
+                    {
+                        urls: 'turn:openrelay.metered.ca:80',
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
+                    },
+                    {
+                        urls: 'turn:openrelay.metered.ca:443',
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
+                    },
+                    {
+                        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
+                    }
                 ]
             }
         };
