@@ -213,7 +213,7 @@
                 <div>
                     <h1 class="font-pixel text-xs sm:text-sm md:text-base text-yellow-400 tracking-wider flex items-center gap-2">
                         GACHAKÉMON
-                        <span class="bg-red-600 text-white text-[9px] px-1.5 py-0.5 rounded font-sans font-bold">v2.9 ONLINE FIX</span>
+                        <span class="bg-red-600 text-white text-[9px] px-1.5 py-0.5 rounded font-sans font-bold">v2.10 ONLINE FIX</span>
                     </h1>
                     <p class="text-[11px] text-slate-400 hidden sm:block">Coleccionismo Gachapon (60 Esferas) y Safari (251 Criaturas)</p>
                 </div>
@@ -387,7 +387,7 @@
                             <div class="flex items-center justify-between">
                                 <span class="text-xs text-slate-300 font-semibold">Estado Red Sincronizada:</span>
                                 <span id="onlineAuthStatus" class="text-[11px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                                    Listo (P2P / Multiventana)
+                                    Preparado para conectar (PeerJS)
                                 </span>
                             </div>
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1026,12 +1026,27 @@
 
             <div class="flex-1 overflow-y-auto space-y-4 pr-1 text-xs leading-relaxed">
                 
-                <div class="bg-slate-950 border-2 border-lime-400/70 rounded-xl p-4 space-y-2">
+                <div class="bg-slate-950 border-2 border-cyan-400/70 rounded-xl p-4 space-y-2">
                     <div class="flex items-center justify-between gap-2">
-                        <span class="font-pixel text-xs text-lime-300 bg-lime-500/20 px-2.5 py-1 rounded border border-lime-400/50">v2.9 — ONLINE, PRIVACIDAD VISUAL Y LIMPIEZA</span>
+                        <span class="font-pixel text-xs text-cyan-300 bg-cyan-500/20 px-2.5 py-1 rounded border border-cyan-400/50">v2.10 — REPARACIÓN DE CONEXIÓN ONLINE</span>
                         <span class="text-emerald-400 font-bold">Última Versión</span>
                     </div>
                     <ul class="space-y-1.5 text-slate-200 list-disc list-inside pt-1">
+                        <li><strong>Señalización HTTPS explícita:</strong> PeerJS usa el servidor oficial en el puerto 443 con TLS, evitando depender de la detección automática del protocolo.</li>
+                        <li><strong>Carga resistente de PeerJS:</strong> carga bajo demanda con tres CDN alternativos; la partida ya no depende de que un único CDN responda.</li>
+                        <li><strong>Sin falso modo online:</strong> eliminado BroadcastChannel como sustituto de Internet, porque solo conecta pestañas del mismo navegador.</li>
+                        <li><strong>Diagnóstico de conexión:</strong> estados visibles, tiempo máximo de espera y mensajes específicos para errores de servidor, código, WebRTC y red.</li>
+                        <li><strong>Sincronización confirmada:</strong> el anfitrión retransmite el estado validado también al jugador que lo envió.</li>
+                        <li><strong>Conexión preparada para TURN:</strong> ambos extremos usan la misma configuración ICE para mejorar conexiones detrás de routers y cortafuegos.</li>
+                    </ul>
+                </div>
+
+                <div class="bg-slate-950 border-2 border-lime-400/70 rounded-xl p-4 space-y-2">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="font-pixel text-xs text-lime-300 bg-lime-500/20 px-2.5 py-1 rounded border border-lime-400/50">v2.9 — ONLINE, PRIVACIDAD VISUAL Y LIMPIEZA</span>
+                        <span class="text-slate-400 font-bold">Versión anterior</span>
+                    </div>
+                    <ul class="space-y-1.5 text-slate-200 list-disc list-inside p</li>
                         <li><strong>Conexión online unificada:</strong> Un solo PeerJS por sala y por cliente, código de sala coherente y retransmisión de los cambios recibidos por el anfitrión.</li>
                         <li><strong>Validación de turno:</strong> El anfitrión rechaza sincronizaciones enviadas por una conexión que no corresponde al jugador que controla el turno activo.</li>
                         <li><strong>Manos privadas en pantalla:</strong> En online cada jugador ve su propio tablero y sus cartas; los rivales solo muestran el número de cartas. Los controles de turno y Safari quedan limitados al jugador activo.</li>
@@ -1199,7 +1214,6 @@
     </div>
 
     <script src="music_tracks.js"></script>
-	<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
     <script src="game.js"></script>
 </body>
 </html>

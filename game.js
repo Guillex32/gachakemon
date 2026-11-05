@@ -1,5 +1,5 @@
 // ============================================================================
-// GACHAKÉMON: MOTOR COMPLETO DE JUEGO v2.9 (game.js)
+// GACHAKÉMON: MOTOR COMPLETO DE JUEGO v2.10 (game.js)
 // Incluye:
 // - Sintetizador Polifónico de 4 Canales (Melodía + Armonía + Bajo + Percusión)
 // - Drag & Drop en Bandeja de Pokéballs (Adyacencia dinámica de Peso Ball)
@@ -1045,9 +1045,12 @@ const OnlineManager = {
     peer: null,
     connections: [],
     hostConn: null,
-    localBC: null,
     lobbyPlayers: [],
     lastHostAiTurnKey: null,
+    peerLibraryPromise: null,
+    connectionTimeout: null,
+    peerOpenTimeout: null,
+    connecting: false,
 
     getLocalPlayerIndex(state = GameController.state) {
         if (!state || !Array.isArray(state.players) || !this.myPeerId) return -1;
@@ -1063,28 +1066,122 @@ const OnlineManager = {
         return state.turnPlayerIdx ?? -1;
     },
 
+    setStatus(message, isError = false) {
+        const status = document.getElementById('onlineAuthStatus');
+        if (!status) return;
+        status.textContent = message;
+        status.classList.toggle('bg-red-500/20', !!isError);
+        status.classList.toggle('text-red-300', !!isError);
+        status.classList.toggle('border-red-500/40', !!isError);
+        status.classList.toggle('bg-emerald-500/20', !isError);
+        status.classList.toggle('text-emerald-300', !isError);
+        status.classList.toggle('border-emerald-500/40', !isError);
+    },
+
+    ensurePeerLibrary() {
+        if (typeof Peer === 'function') return Promise.resolve(true);
+        if (this.peerLibraryPromise) return this.peerLibraryPromise;
+
+        const sources = [
+            'https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js',
+            'https://unpkg.com/peerjs@1.5.5/dist/peerjs.min.js',
+            'https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js'
+        ];
+
+        this.peerLibraryPromise = (async () => {
+            for (const src of sources) {
+                const loaded = await new Promise(resolve => {
+                    const script = document.createElement('script');
+                    let settled = false;
+                    const finish = value => {
+                        if (settled) return;
+                        settled = true;
+                        clearTimeout(timeoutId);
+                        if (!value) script.remove();
+                        resolve(value);
+                    };
+                    script.src = src;
+                    script.async = true;
+                    script.crossOrigin = 'anonymous';
+                    script.onload = () => finish(typeof Peer === 'function');
+                    script.onerror = () => finish(false);
+                    const timeoutId = setTimeout(() => finish(false), 10000);
+                    document.head.appendChild(script);
+                });
+                if (loaded && typeof Peer === 'function') return true;
+            }
+            return false;
+        })();
+
+        return this.peerLibraryPromise.then(loaded => {
+            if (!loaded) this.peerLibraryPromise = null;
+            return loaded;
+        });
+    },
+
+    getPeerOptions() {
+        return {
+            port: 443,
+            secure: true,
+            debug: 2,
+            config: {
+                sdpSemantics: 'unified-plan',
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    {
+                        urls: [
+                            'turn:openrelay.metered.ca:80',
+                            'turn:openrelay.metered.ca:443',
+                            'turn:openrelay.metered.ca:443?transport=tcp',
+                            'turns:openrelay.metered.ca:443?transport=tcp'
+                        ],
+                        username: 'openrelayproject',
+                        credential: 'openrelayproject'
+                    }
+                ]
+            }
+        };
+    },
+
+    explainPeerError(error, isJoining = false) {
+        const type = error?.type || 'unknown';
+        const messages = {
+            'peer-unavailable': 'No existe una sala activa con ese código. Comprueba el código y que el anfitrión siga conectado.',
+            'unavailable-id': 'El identificador de esa sala ya está ocupado. Crea otra sala.',
+            'network': 'No se puede alcanzar el servidor de señalización de PeerJS. Comprueba Internet o el cortafuegos.',
+            'server-error': 'El servidor de PeerJS no responde. Inténtalo de nuevo más tarde.',
+            'socket-error': 'No se ha podido abrir el WebSocket de PeerJS. La red podría bloquear la conexión.',
+            'socket-closed': 'El servidor de señalización ha cerrado la conexión.',
+            'ssl-unavailable': 'No se ha podido establecer la conexión segura con PeerJS.',
+            'browser-incompatible': 'Este navegador no ofrece las funciones WebRTC necesarias.',
+            'webrtc': 'WebRTC no ha podido conectar los dispositivos. Puede ser un bloqueo de red o NAT.',
+            'disconnected': 'PeerJS ha perdido la conexión con el servidor.'
+        };
+        return messages[type] || `${isJoining ? 'No se ha podido unir a la sala' : 'No se ha podido crear la sala'} (${type}). ${error?.message || ''}`.trim();
+    },
+
     resetConnections() {
+        clearTimeout(this.connectionTimeout);
+        clearTimeout(this.peerOpenTimeout);
+        this.connectionTimeout = null;
+        this.peerOpenTimeout = null;
         if (this.peer) {
-            this.peer.destroy();
+            try { this.peer.destroy(); } catch (error) { console.warn('[OnlineManager] Error cerrando PeerJS:', error); }
             this.peer = null;
         }
-        if (this.localBC) {
-            this.localBC.close();
-            this.localBC = null;
-        }
+        this.connections.forEach(conn => {
+            try { conn.close(); } catch (_) {}
+        });
         this.connections = [];
         this.hostConn = null;
         this.lastHostAiTurnKey = null;
+        this.connecting = false;
+        this.peerReady = false;
     },
 
-    startFallbackChannel(code) {
-        if (typeof BroadcastChannel === 'undefined') return false;
-        this.localBC = new BroadcastChannel('gachakemon_room_' + code);
-        this.localBC.onmessage = event => this.handleNetworkMessage(event.data, null, true);
-        return true;
-    },
-
-    createRoom() {
+    async createRoom() {
+        if (this.connecting) return;
         AudioEngine.sfxClick();
         this.resetConnections();
         const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -1094,40 +1191,55 @@ const OnlineManager = {
         this.isHost = true;
         this.myPeerId = 'host_' + code;
         this.lobbyPlayers = [{ id: this.myPeerId, name: getInputTrainerName('Jugador 1'), isAI: false }];
-        this.startHostPeer(code);
         this.renderWaitingRoom();
-    },
+        this.connecting = true;
+        this.peerReady = false;
+        this.setStatus('Cargando conexión online…');
 
-    startHostPeer(code) {
-        if (typeof Peer === 'undefined') {
-            if (this.startFallbackChannel(code)) {
-                const status = document.getElementById('onlineAuthStatus');
-                if (status) status.textContent = 'Sala local (misma red / navegador)';
-                return;
-            }
-            UI.showAlert('Red no disponible', 'No se ha podido cargar PeerJS ni el canal local. Comprueba la conexión e inténtalo de nuevo.', '⚠️');
+        if (!window.isSecureContext && location.protocol !== 'file:') {
+            this.connecting = false;
+            this.setStatus('La página necesita HTTPS para WebRTC.', true);
+            UI.showAlert('Conexión segura necesaria', 'Abre el juego desde una dirección HTTPS o desde localhost. Los navegadores bloquean WebRTC en páginas HTTP normales.', '🔒');
             return;
         }
 
+        const loaded = await this.ensurePeerLibrary();
+        if (!loaded) {
+            this.connecting = false;
+            this.setStatus('No se pudo cargar PeerJS.', true);
+            UI.showAlert('PeerJS no disponible', 'No se ha podido cargar la librería desde los servidores CDN. Comprueba la conexión, bloqueadores o firewall y vuelve a intentarlo.', '⚠️');
+            return;
+        }
+        this.startHostPeer(code);
+    },
+
+    startHostPeer(code) {
+        this.peerReady = false;
         try {
-            this.peer = new Peer('gachakemon-room-' + code, {
-                debug: 1,
-                config: {
-                    iceServers: [
-                        { urls: 'stun:stun.l.google.com:19302' },
-                        { urls: 'stun:stun1.l.google.com:19302' },
-                        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-                        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-                        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
-                    ]
+            this.peer = new Peer('gachakemon-room-' + code, this.getPeerOptions());
+            this.peerOpenTimeout = setTimeout(() => {
+                if (this.peer && !this.peer.disconnected && !this.peer.destroyed && !this.peerReady) {
+                    this.connecting = false;
+                    this.setStatus('PeerJS no responde (15 s).', true);
+                    UI.showAlert('Servidor online sin respuesta', 'PeerJS no ha confirmado la sala en 15 segundos. Comprueba el acceso al puerto 443 o prueba otra red.', '⚠️');
                 }
-            });
+            }, 15000);
+
             this.peer.on('open', () => {
-                const status = document.getElementById('onlineAuthStatus');
-                if (status) status.textContent = 'Sala Online Activa (' + code + ')';
+                clearTimeout(this.peerOpenTimeout);
+                this.peerOpenTimeout = null;
+                this.peerReady = true;
+                this.connecting = false;
+                this.setStatus('Sala online activa: ' + code);
             });
+
             this.peer.on('connection', conn => {
-                this.connections.push(conn);
+                if (this.connections.length >= 3) {
+                    conn.close();
+                    return;
+                }
+                if (!this.connections.includes(conn)) this.connections.push(conn);
+                conn.on('open', () => this.setStatus(`Sala ${code}: conexión recibida. Esperando jugador…`));
                 conn.on('data', data => this.handleNetworkMessage(data, conn));
                 conn.on('close', () => {
                     this.connections = this.connections.filter(item => item !== conn);
@@ -1136,24 +1248,40 @@ const OnlineManager = {
                         this.broadcastLobbyUpdate();
                         this.renderWaitingRoom();
                     }
+                    this.setStatus(`Sala online activa: ${code}`);
                 });
-                conn.on('error', error => console.error('[OnlineManager] Error de conexión:', error));
+                conn.on('error', error => {
+                    console.error('[OnlineManager] Error de conexión entrante:', error);
+                    this.setStatus(this.explainPeerError(error), true);
+                });
             });
+
+            this.peer.on('disconnected', () => {
+                this.peerReady = false;
+                this.setStatus('Reconectando con el servidor…');
+                if (this.peer && !this.peer.destroyed && this.peer.disconnected) {
+                    try { this.peer.reconnect(); } catch (error) { console.error('[OnlineManager] Error reconectando:', error); }
+                }
+            });
+
             this.peer.on('error', error => {
                 console.error('[OnlineManager] Error P2P:', error.type, error);
-                if (error.type === 'unavailable-id') {
-                    UI.showAlert('Código ocupado', 'Ese código ya está activo. Crea una sala nueva.', '⚠️');
-                } else {
-                    UI.showAlert('Error de conexión', `PeerJS: ${error.type || 'error desconocido'}.`, '⚠️');
-                }
+                clearTimeout(this.peerOpenTimeout);
+                this.peerOpenTimeout = null;
+                this.connecting = false;
+                this.setStatus(this.explainPeerError(error), true);
+                UI.showAlert('Error de conexión online', this.explainPeerError(error), '⚠️');
             });
         } catch (error) {
             console.error('[OnlineManager] No se pudo crear la sala:', error);
-            UI.showAlert('Error de red', 'No se ha podido crear la sala online.', '⚠️');
+            this.connecting = false;
+            this.setStatus('No se pudo crear la sala.', true);
+            UI.showAlert('Error de red', error.message || 'No se ha podido crear la sala online.', '⚠️');
         }
     },
 
-    joinRoom() {
+    async joinRoom() {
+        if (this.connecting) return;
         AudioEngine.sfxClick();
         const codeInput = document.getElementById('inputRoomCode');
         const code = String(codeInput?.value || '').trim().toUpperCase();
@@ -1166,38 +1294,94 @@ const OnlineManager = {
         this.roomCode = code;
         this.isHost = false;
         this.myPeerId = 'client_' + Math.random().toString(36).slice(2, 12);
-        const playerName = getInputTrainerName('Jugador');
+        this.connecting = true;
+        this.peerReady = false;
+        this.setStatus('Cargando conexión online…');
 
-        if (typeof Peer === 'undefined') {
-            if (!this.startFallbackChannel(code)) {
-                UI.showAlert('Red no disponible', 'No se ha podido cargar PeerJS ni el canal local.', '⚠️');
-                return;
-            }
-            this.localBC.postMessage({ type: 'JOIN_REQUEST', player: { id: this.myPeerId, name: playerName } });
-        } else {
-            try {
-                this.peer = new Peer({ debug: 1 });
-                this.peer.on('open', () => {
-                    const conn = this.peer.connect('gachakemon-room-' + code, { reliable: true });
-                    this.hostConn = conn;
-                    conn.on('open', () => {
-                        conn.send({ type: 'JOIN_REQUEST', player: { id: this.myPeerId, name: playerName } });
-                        const status = document.getElementById('onlineAuthStatus');
-                        if (status) status.textContent = 'Conectando a sala ' + code + '…';
-                    });
-                    conn.on('data', data => this.handleNetworkMessage(data, conn));
-                    conn.on('close', () => UI.showAlert('Conexión perdida', 'Se ha cerrado la conexión con el anfitrión.', '⚠️'));
-                    conn.on('error', error => UI.showAlert('Error de conexión', error.message || 'No se pudo conectar con la sala.', '⚠️'));
+        if (!window.isSecureContext && location.protocol !== 'file:') {
+            this.connecting = false;
+            this.setStatus('La página necesita HTTPS para WebRTC.', true);
+            UI.showAlert('Conexión segura necesaria', 'Abre el juego desde una dirección HTTPS o desde localhost. Los navegadores bloquean WebRTC en páginas HTTP normales.', '🔒');
+            return;
+        }
+
+        const loaded = await this.ensurePeerLibrary();
+        if (!loaded) {
+            this.connecting = false;
+            this.setStatus('No se pudo cargar PeerJS.', true);
+            UI.showAlert('PeerJS no disponible', 'No se ha podido cargar la librería desde los servidores CDN. Comprueba la conexión, bloqueadores o firewall y vuelve a intentarlo.', '⚠️');
+            return;
+        }
+
+        try {
+            this.peer = new Peer(this.getPeerOptions());
+            this.peerOpenTimeout = setTimeout(() => {
+                if (this.connecting) {
+                    this.connecting = false;
+                    this.setStatus('PeerJS no responde (15 s).', true);
+                    UI.showAlert('Servidor online sin respuesta', 'No se ha podido contactar con el servidor de PeerJS. Comprueba el puerto 443 o prueba otra red.', '⚠️');
+                }
+            }, 15000);
+
+            this.peer.on('open', () => {
+                clearTimeout(this.peerOpenTimeout);
+                this.peerOpenTimeout = null;
+                this.peerReady = true;
+                const hostId = 'gachakemon-room-' + code;
+                const conn = this.peer.connect(hostId, { reliable: true });
+                this.hostConn = conn;
+                this.connectionTimeout = setTimeout(() => {
+                    if (this.hostConn === conn && !conn.open) {
+                        this.connecting = false;
+                        this.setStatus('No se ha podido conectar con la sala.', true);
+                        UI.showAlert('Sala no encontrada', 'PeerJS está disponible, pero el anfitrión no responde. Comprueba el código y que siga dentro de la sala.', '⚠️');
+                    }
+                }, 15000);
+
+                conn.on('open', () => {
+                    clearTimeout(this.connectionTimeout);
+                    this.connectionTimeout = null;
+                    this.connecting = false;
+                    this.setStatus('Conectado. Esperando al anfitrión…');
+                    conn.send({ type: 'JOIN_REQUEST', player: { id: this.myPeerId, name: getInputTrainerName('Jugador') } });
                 });
-                this.peer.on('error', error => {
-                    console.error('[OnlineManager] Error al unirse:', error);
-                    UI.showAlert('No se encuentra la sala', 'Comprueba el código y que el anfitrión siga conectado.', '⚠️');
+                conn.on('data', data => this.handleNetworkMessage(data, conn));
+                conn.on('close', () => {
+                    this.setStatus('Conexión perdida con el anfitrión.', true);
+                    UI.showAlert('Conexión perdida', 'Se ha cerrado la conexión con el anfitrión.', '⚠️');
                 });
-            } catch (error) {
-                console.error('[OnlineManager] No se pudo unir a la sala:', error);
-                UI.showAlert('Error de red', 'No se ha podido iniciar la conexión online.', '⚠️');
-                return;
-            }
+                conn.on('error', error => {
+                    console.error('[OnlineManager] Error de conexión al anfitrión:', error);
+                    this.connecting = false;
+                    this.setStatus(this.explainPeerError(error, true), true);
+                    UI.showAlert('Error al unirse', this.explainPeerError(error, true), '⚠️');
+                });
+            });
+
+            this.peer.on('disconnected', () => {
+                this.peerReady = false;
+                this.setStatus('Reconectando con el servidor…');
+                if (this.peer && !this.peer.destroyed && this.peer.disconnected) {
+                    try { this.peer.reconnect(); } catch (error) { console.error('[OnlineManager] Error reconectando:', error); }
+                }
+            });
+
+            this.peer.on('error', error => {
+                console.error('[OnlineManager] Error al unirse:', error.type, error);
+                clearTimeout(this.peerOpenTimeout);
+                clearTimeout(this.connectionTimeout);
+                this.peerOpenTimeout = null;
+                this.connectionTimeout = null;
+                this.connecting = false;
+                this.setStatus(this.explainPeerError(error, true), true);
+                UI.showAlert('No se pudo unir a la sala', this.explainPeerError(error, true), '⚠️');
+            });
+        } catch (error) {
+            console.error('[OnlineManager] No se pudo unir a la sala:', error);
+            this.connecting = false;
+            this.setStatus('No se pudo iniciar la conexión.', true);
+            UI.showAlert('Error de red', error.message || 'No se ha podido iniciar la conexión online.', '⚠️');
+            return;
         }
 
         document.getElementById('onlineRoomBox')?.classList.remove('hidden');
@@ -1230,37 +1414,37 @@ const OnlineManager = {
         UI.showAlert('Código copiado', `El código de sala ${this.roomCode} se ha copiado al portapapeles.`, '📋');
     },
 
-    isAuthorizedStateSender(msg, conn = null, fromFallback = false) {
-        const actorId = conn?.playerId || msg?.actorId;
-        if (!actorId) return false;
-        if (conn && conn.playerId !== actorId) return false;
-
+    isAuthorizedStateSender(msg, conn = null) {
+        if (!conn || !conn.playerId || msg?.actorId !== conn.playerId) return false;
         const state = GameController.state;
         if (!state || state.mode !== 'online') return false;
         const activeIdx = this.getActivePlayerIndex(state);
         const activePlayer = state.players[activeIdx];
         const expectedId = activePlayer && !activePlayer.isAI ? activePlayer.id : null;
-        const hasPrivateApagonChoice = Array.isArray(state.pendingApagonPlayerIds) && state.pendingApagonPlayerIds[0] === actorId;
-        return actorId === expectedId || hasPrivateApagonChoice;
+        const hasPrivateApagonChoice = Array.isArray(state.pendingApagonPlayerIds) && state.pendingApagonPlayerIds[0] === conn.playerId;
+        return conn.playerId === expectedId || hasPrivateApagonChoice;
     },
 
-    handleNetworkMessage(msg, conn = null, fromFallback = false) {
+    handleNetworkMessage(msg, conn = null) {
         if (!msg || typeof msg !== 'object' || typeof msg.type !== 'string') return;
 
-        if (msg.type === 'JOIN_REQUEST' && this.isHost) {
-            if (this.lobbyPlayers.length >= 4 || !msg.player || !msg.player.id) return;
+        if (this.isHost && msg.type === 'JOIN_REQUEST') {
+            if (!conn || this.lobbyPlayers.length >= 4 || !msg.player || !msg.player.id) return;
+            if (conn.playerId) return;
             const remoteId = String(msg.player.id).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40);
             if (!remoteId || remoteId === this.myPeerId || this.lobbyPlayers.some(player => player.id === remoteId)) return;
             const playerName = makeUniquePlayerName(msg.player.name, this.lobbyPlayers.map(player => player.name), `Jugador ${this.lobbyPlayers.length + 1}`);
-            const newPlayer = { id: remoteId, name: playerName, isAI: false };
-            if (conn) conn.playerId = remoteId;
-            this.lobbyPlayers.push(newPlayer);
+            conn.playerId = remoteId;
+            this.lobbyPlayers.push({ id: remoteId, name: playerName, isAI: false });
             this.broadcastLobbyUpdate();
             this.renderWaitingRoom();
+            this.setStatus(`${this.lobbyPlayers.length}/4 jugadores conectados.`);
             return;
         }
 
-        if (msg.type === 'LOBBY_UPDATE' && !this.isHost && Array.isArray(msg.players)) {
+        if (!this.isHost && conn && conn !== this.hostConn) return;
+
+        if (!this.isHost && msg.type === 'LOBBY_UPDATE' && Array.isArray(msg.players)) {
             this.lobbyPlayers = msg.players.slice(0, 4).map((player, index) => ({
                 id: String(player.id || `player_${index}`),
                 name: normalizeTrainerName(player.name, `Jugador ${index + 1}`),
@@ -1268,13 +1452,14 @@ const OnlineManager = {
                 aiProfile: player.aiProfile || 'collector'
             }));
             this.renderWaitingRoom();
+            this.setStatus('Conectado a sala ' + this.roomCode);
             return;
         }
 
         if (msg.type === 'STATE_SYNC' && msg.state && Array.isArray(msg.state.players)) {
             if (this.isHost) {
-                if (!this.isAuthorizedStateSender(msg, conn, fromFallback)) {
-                    console.warn('[OnlineManager] Sincronización rechazada: el emisor no controla el turno activo.');
+                if (!this.isAuthorizedStateSender(msg, conn)) {
+                    console.warn('[OnlineManager] Sincronización rechazada: conexión o turno no autorizado.');
                     return;
                 }
                 const currentState = GameController.state;
@@ -1283,9 +1468,9 @@ const OnlineManager = {
                 if (currentIds.length !== incomingIds.length || currentIds.some(id => !incomingIds.includes(id))) return;
                 const previousActiveIdx = this.getActivePlayerIndex(currentState);
                 GameController.receiveExternalState(msg.state);
-                this.broadcastGameState(GameController.state, conn);
+                this.broadcastGameState(GameController.state);
                 this.scheduleHostAIIfNeeded(previousActiveIdx);
-            } else {
+            } else if (conn === this.hostConn) {
                 GameController.receiveExternalState(msg.state);
             }
         }
@@ -1312,34 +1497,29 @@ const OnlineManager = {
     },
 
     broadcastLobbyUpdate() {
+        if (!this.isHost) return;
         const payload = { type: 'LOBBY_UPDATE', players: this.lobbyPlayers };
+        this.connections.forEach(conn => {
+            if (conn?.open) {
+                try { conn.send(payload); }
+                catch (error) { console.warn('[OnlineManager] Error enviando sala:', error); }
+            }
+        });
+    },
+
+    broadcastGameState(state) {
+        if (!this.roomCode || !state) return;
+        const payload = { type: 'STATE_SYNC', actorId: this.myPeerId, state: JSON.parse(JSON.stringify(state)) };
         if (this.isHost) {
             this.connections.forEach(conn => {
                 if (conn?.open) {
-                    try { conn.send(payload); } catch (error) { console.warn('[OnlineManager] Error enviando sala:', error); }
+                    try { conn.send(payload); }
+                    catch (error) { console.warn('[OnlineManager] Error retransmitiendo estado:', error); }
                 }
             });
-            if (this.localBC) this.localBC.postMessage(payload);
-        }
-    },
-
-    broadcastGameState(state, excludedConnection = null) {
-        if (!this.roomCode || !state) return;
-        const snapshot = JSON.parse(JSON.stringify(state));
-        const payload = { type: 'STATE_SYNC', actorId: this.myPeerId, state: snapshot };
-
-        if (this.isHost) {
-            this.connections.forEach(conn => {
-                if (conn && conn !== excludedConnection && conn.open) {
-                    try { conn.send(payload); } catch (error) { console.warn('[OnlineManager] Error retransmitiendo estado:', error); }
-                }
-            });
-            if (this.localBC) this.localBC.postMessage(payload);
         } else if (this.hostConn?.open) {
             try { this.hostConn.send(payload); }
             catch (error) { console.warn('[OnlineManager] No se pudo enviar el estado al anfitrión:', error); }
-        } else if (this.localBC) {
-            this.localBC.postMessage(payload);
         }
     },
 
@@ -1365,6 +1545,10 @@ const OnlineManager = {
 
     hostStartGame() {
         if (!this.isHost || this.lobbyPlayers.length < 2) return;
+        if (!this.peer || !this.peerReady || this.peer.destroyed || this.peer.disconnected) {
+            UI.showAlert('Sala sin conexión', 'Espera a que el estado indique «Sala online activa» antes de iniciar la partida.', '⚠️');
+            return;
+        }
         GameController.startOnlineGameFromLobby(this.lobbyPlayers);
     }
 };
