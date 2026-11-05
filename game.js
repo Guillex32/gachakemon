@@ -984,13 +984,139 @@ const OnlineManager = {
     bc: null,
     lobbyPlayers: [],
 
-    initChannel(code) {
-        if (this.bc) this.bc.close();
-        if ('BroadcastChannel' in window) {
-            this.bc = new BroadcastChannel('gachakemon_room_' + code);
-            this.bc.onmessage = (ev) => this.handleNetworkMessage(ev.data);
-        }
-    },
+	initChannel(code) {
+	  // 1. Limpiar conexiones previas si existían
+	  if (this.peer) {
+		this.peer.destroy();
+		this.peer = null;
+	  }
+	  if (this.localBC) {
+		this.localBC.close();
+		this.localBC = null;
+	  }
+
+	  this.peerConnections = [];
+	  this.hostConn = null;
+	  this.pendingMessages = [];
+
+	  const cleanCode = String(code).trim().toUpperCase();
+	  const hostPeerId = 'gachakemon-room-v1-' + cleanCode;
+
+	  // Respaldo local si no hay conexión a Internet o no cargó PeerJS
+	  if (typeof Peer === 'undefined') {
+		console.warn('PeerJS no detectado. Usando modo local entre pestañas.');
+		this.localBC = new BroadcastChannel('gachakemon_room_' + cleanCode);
+		this.localBC.onmessage = (e) => this.handleNetworkMessage(e.data);
+		this.channel = {
+		  postMessage: (data) => this.localBC.postMessage(data),
+		  close: () => this.localBC.close()
+		};
+		return;
+	  }
+
+	  // 2. Servidores STUN y TURN para atravesar routers y redes móviles (4G/5G)
+	  const peerOptions = {
+		debug: 1,
+		config: {
+		  iceServers: [
+			{ urls: 'stun:stun.l.google.com:19302' },
+			{ urls: 'stun:stun1.l.google.com:19302' },
+			{
+			  urls: 'turn:openrelay.metered.ca:80',
+			  username: 'openrelayproject',
+			  credential: 'openrelayproject'
+			},
+			{
+			  urls: 'turn:openrelay.metered.ca:443',
+			  username: 'openrelayproject',
+			  credential: 'openrelayproject'
+			},
+			{
+			  urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+			  username: 'openrelayproject',
+			  credential: 'openrelayproject'
+			}
+		  ]
+		}
+	  };
+
+	  // El Host registra el ID público de la sala; los clientes crean un ID dinámico
+	  this.peer = this.isHost
+		? new Peer(hostPeerId, peerOptions)
+		: new Peer(undefined, peerOptions);
+
+	  // 3. Mantener compatibilidad total con this.channel.postMessage() en todo game.js
+	  this.channel = {
+		postMessage: (data) => {
+		  if (this.isHost) {
+			this.peerConnections.forEach((conn) => {
+			  if (conn && conn.open) conn.send(data);
+			});
+		  } else {
+			if (this.hostConn && this.hostConn.open) {
+			  this.hostConn.send(data);
+			} else {
+			  // Si joinRoom() envía el mensaje antes de abrirse el túnel, se guarda en cola
+			  this.pendingMessages.push(data);
+			}
+		  }
+		},
+		close: () => {
+		  if (this.peer) this.peer.destroy();
+		}
+	  };
+
+	  // 4. Gestión de la apertura del túnel WebRTC
+	  this.peer.on('open', (id) => {
+		console.log('[OnlineManager] Conectado a PeerJS con ID:', id);
+
+		if (this.isHost) {
+		  this.peer.on('connection', (conn) => {
+			conn.on('open', () => {
+			  this.peerConnections.push(conn);
+			});
+
+			conn.on('data', (data) => {
+			  // Reenviar a los demás clientes conectados para mantener la sala sincronizada
+			  this.peerConnections.forEach((otherConn) => {
+				if (otherConn !== conn && otherConn.open) {
+				  otherConn.send(data);
+				}
+			  });
+			  this.handleNetworkMessage(data);
+			});
+
+			conn.on('close', () => {
+			  this.peerConnections = this.peerConnections.filter((c) => c !== conn);
+			});
+		  });
+		} else {
+		  const conn = this.peer.connect(hostPeerId, { reliable: true });
+
+		  conn.on('open', () => {
+			this.hostConn = conn;
+			// Vaciar la cola de mensajes pendientes (como la solicitud de unión a la sala)
+			while (this.pendingMessages.length > 0) {
+			  const msg = this.pendingMessages.shift();
+			  this.hostConn.send(msg);
+			}
+		  });
+
+		  conn.on('data', (data) => {
+			this.handleNetworkMessage(data);
+		  });
+		}
+	  });
+
+	  this.peer.on('error', (err) => {
+		console.error('[OnlineManager] Error P2P:', err.type, err);
+		if (err.type === 'peer-unavailable') {
+		  alert('No se encontró ninguna sala activa con el código: ' + cleanCode);
+		} else if (err.type === 'unavailable-id') {
+		  alert('Ese código ya está activo. Crea una sala nueva para generar otro código.');
+		}
+	  });
+	},
 
     createRoom() {
         AudioEngine.sfxClick();
@@ -999,7 +1125,7 @@ const OnlineManager = {
         for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
         this.roomCode = code;
         this.isHost = true;
-        const playerName = (document.getElementById('inputPlayerName').value || 'Guillermo').trim();
+        const playerName = (document.getElementById('inputPlayerName').value || ' ').trim();
         this.myPeerId = 'host_' + code;
         this.lobbyPlayers = [{ id: this.myPeerId, name: playerName, isAI: false }];
 
