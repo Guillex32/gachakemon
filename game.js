@@ -1119,34 +1119,19 @@ const OnlineManager = {
         });
     },
 
-    getPeerOptions() {
-        return {
-            debug: 2,
-            config: {
-                sdpSemantics: 'unified-plan',
-                iceServers: [
-                    { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' },
-                    // Servidores TURN de relevo para saltar restricciones de NAT y móviles:
-                    {
-                        urls: 'turn:openrelay.metered.ca:80',
-                        username: 'openrelayproject',
-                        credential: 'openrelayproject'
-                    },
-                    {
-                        urls: 'turn:openrelay.metered.ca:443',
-                        username: 'openrelayproject',
-                        credential: 'openrelayproject'
-                    },
-                    {
-                        urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-                        username: 'openrelayproject',
-                        credential: 'openrelayproject'
-                    }
-                ]
-            }
-        };
-    },
+	getPeerOptions() {
+			return {
+				debug: 2,
+				config: {
+					sdpSemantics: 'unified-plan',
+					iceServers: [
+						{ urls: 'stun:stun.l.google.com:19302' },
+						{ urls: 'stun:stun1.l.google.com:19302' },
+						{ urls: 'stun:stun2.l.google.com:19302' }
+					]
+				}
+			};
+		},
 
     explainPeerError(error, isJoining = false) {
         const type = error?.type || 'unknown';
@@ -1222,7 +1207,7 @@ const OnlineManager = {
         this.peerReady = false;
         try {
             // Omitimos host/port/path/key para utilizar automáticamente PeerJS Cloud.
-            this.peer = new Peer('gachakemon-room-' + code, this.getPeerOptions());
+            this.peer = new Peer('guillex32-gachakemon-room-' + code, this.getPeerOptions());
             this.peerOpenTimeout = setTimeout(() => {
                 if (this.peer && !this.peer.disconnected && !this.peer.destroyed && !this.peerReady) {
                     this.connecting = false;
@@ -1339,7 +1324,7 @@ const OnlineManager = {
                 clearTimeout(this.peerOpenTimeout);
                 this.peerOpenTimeout = null;
                 this.peerReady = true;
-                const hostId = 'gachakemon-room-' + code;
+                const hostId = 'guillex32-gachakemon-room-' + code;
                 this.setStatus('Buscando al anfitrión…');
                 const conn = this.peer.connect(hostId, { reliable: true });
                 this.hostConn = conn;
