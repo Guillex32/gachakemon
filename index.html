@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GACHAKÉMON: Edición Retro Gachapon & Safari</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Pixelify+Sans:wght@400;500;600;700&family=Silkscreen:wght@400;700&family=Chakra+Petch:wght@400;600;700&family=Press+Start+2P&family=VT323&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        :root {
+            --gb-dark: #0f172a;
+            --gb-border: #334155;
+            --retro-yellow: #facc15;
+            --retro-red: #ef4444;
+            --retro-blue: #3b82f6;
+            --retro-green: #22c55e;
+            --retro-purple: #a855f7;
+        }
+        body {
+            font-family: 'Pixelify Sans', 'Chakra Petch', sans-serif;
+            background-color: #0b0f19;
+            color: #f8fafc;
+            overflow-x: hidden;
+            user-select: none;
+            letter-spacing: 0.2px;
+        }
+        .font-pixel {
+            font-family: 'Silkscreen', 'Pixelify Sans', monospace;
+            letter-spacing: 0.2px;
+            line-height: 1.35;
+        }
+        .font-vt {
+            font-family: 'Pixelify Sans', 'VT323', monospace;
+        }
+        .pixel-btn {
+            font-family: 'Silkscreen', 'Pixelify Sans', monospace !important;
+            letter-spacing: 0.3px;
+        }
+        /* Modos de Fuente Seleccionables en Ajustes */
+        body.font-mode-gba_classic {
+            font-family: 'Pixelify Sans', 'Chakra Petch', sans-serif;
+        }
+        body.font-mode-gba_classic .font-pixel,
+        body.font-mode-gba_classic .pixel-btn {
+            font-family: 'Silkscreen', 'Pixelify Sans', monospace !important;
+        }
+        body.font-mode-rpg_clean {
+            font-family: 'Chakra Petch', 'Inter', sans-serif;
+        }
+        body.font-mode-rpg_clean .font-pixel,
+        body.font-mode-rpg_clean .pixel-btn {
+            font-family: 'Chakra Petch', sans-serif !important;
+            font-weight: 700;
+            letter-spacing: 0.4px;
+        }
+        body.font-mode-arcade_8bit {
+            font-family: 'Inter', sans-serif;
+        }
+        body.font-mode-arcade_8bit .font-pixel,
+        body.font-mode-arcade_8bit .pixel-btn {
+            font-family: 'Press Start 2P', monospace !important;
+            letter-spacing: -0.5px;
+        }
+        .pixel-box {
+            background: #1e293b;
+            border: 3px solid #f8fafc;
+            box-shadow: 0 0 0 3px #0f172a, 4px 4px 0 3px rgba(0,0,0,0.6);
+            border-radius: 6px;
+        }
+        .pixel-box-gold {
+            background: #1e293b;
+            border: 3px solid #facc15;
+            box-shadow: 0 0 0 3px #713f12, 4px 4px 0 3px rgba(0,0,0,0.6);
+            border-radius: 6px;
+        }
+        .pixel-btn {
+            font-family: 'Press Start 2P', monospace;
+            border: 2px solid #f8fafc;
+            box-shadow: 0 4px 0 #0f172a;
+            transition: all 0.1s ease;
+            border-radius: 6px;
+        }
+        .pixel-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 0 #0f172a;
+            filter: brightness(1.1);
+        }
+        .pixel-btn:active:not(:disabled) {
+            transform: translateY(2px);
+            box-shadow: 0 1px 0 #0f172a;
+        }
+        .pixel-btn:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+        .crt-overlay {
+            pointer-events: none;
+            position: fixed;
+            inset: 0;
+            background: linear-gradient(
+                rgba(18, 16, 16, 0) 50%, 
+                rgba(0, 0, 0, 0.22) 50%
+            ), linear-gradient(
+                90deg,
+                rgba(255, 0, 0, 0.03),
+                rgba(0, 255, 0, 0.01),
+                rgba(0, 0, 255, 0.03)
+            );
+            background-size: 100% 4px, 6px 100%;
+            z-index: 9999;
+        }
+        @keyframes crankRotate {
+            0% { transform: rotate(0deg); }
+            50% { transform: rotate(180deg) scale(1.1); }
+            100% { transform: rotate(360deg); }
+        }
+        .animate-crank {
+            animation: crankRotate 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        @keyframes capsuleBounce {
+            0% { transform: translateY(-60px) scale(0.3); opacity: 0; }
+            60% { transform: translateY(10px) scale(1.15); opacity: 1; }
+            80% { transform: translateY(-6px) scale(0.95); }
+            100% { transform: translateY(0) scale(1); opacity: 1; }
+        }
+        .animate-capsule {
+            animation: capsuleBounce 0.6s ease-out forwards;
+        }
+        @keyframes coinSpin {
+            0% { transform: rotateY(0deg) translateY(0); }
+            50% { transform: rotateY(540deg) translateY(-28px) scale(1.2); }
+            100% { transform: rotateY(1080deg) translateY(0) scale(1); }
+        }
+        .animate-coin {
+            animation: coinSpin 0.8s ease-in-out;
+        }
+        @keyframes floatSlow {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-4px); }
+        }
+        .animate-float {
+            animation: floatSlow 2.5s ease-in-out infinite;
+        }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+                ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        .pixel-box {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border: 3px solid #38bdf8;
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.2), 0 0 0 3px #0f172a, 5px 5px 0 3px rgba(0,0,0,0.7);
+            transition: all 0.2s ease;
+        }
+        .pixel-box:hover {
+            border-color: #7dd3fc;
+            box-shadow: 0 0 20px rgba(125, 211, 252, 0.32), 0 0 0 3px #0f172a, 5px 5px 0 3px rgba(0,0,0,0.8);
+        }
+        .pixel-box-gold {
+            background: linear-gradient(135deg, #1e293b 0%, #171f33 100%);
+            border: 3px solid #facc15;
+            box-shadow: 0 0 20px rgba(250, 204, 21, 0.25), 0 0 0 3px #713f12, 5px 5px 0 3px rgba(0,0,0,0.7);
+        }
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 0.85; filter: drop-shadow(0 0 4px rgba(250,204,21,0.4)); }
+            50% { opacity: 1; filter: drop-shadow(0 0 12px rgba(250,204,21,0.85)); }
+        }
+        .animate-glow {
+            animation: pulseGlow 2s ease-in-out infinite;
+        }
+    
+        /* Sistema de 6 Paletas de Colores Dinámicas */
+        body.theme-default {
+            background: radial-gradient(circle at center, #111827 0%, #0b0f19 100%);
+            --box-bg-1: #1e293b; --box-bg-2: #0f172a; --box-border: #38bdf8; --box-glow: rgba(56, 189, 248, 0.22);
+            --gold-bg-1: #1e293b; --gold-bg-2: #171f33; --gold-border: #facc15; --gold-glow: rgba(250, 204, 21, 0.25);
+        }
+        body.theme-kanto_red {
+            background: radial-gradient(circle at center, #2b0b0b 0%, #120404 100%);
+            --box-bg-1: #3b1313; --box-bg-2: #1f0808; --box-border: #f97316; --box-glow: rgba(249, 115, 22, 0.28);
+            --gold-bg-1: #451616; --gold-bg-2: #240909; --gold-border: #facc15; --gold-glow: rgba(250, 204, 21, 0.32);
+        }
+        body.theme-kanto_blue {
+            background: radial-gradient(circle at center, #082240 0%, #030d1a 100%);
+            --box-bg-1: #0f3156; --box-bg-2: #07192e; --box-border: #00f5d4; --box-glow: rgba(0, 245, 212, 0.25);
+            --gold-bg-1: #123861; --gold-bg-2: #091d36; --gold-border: #60a5fa; --gold-glow: rgba(96, 165, 250, 0.3);
+        }
+        body.theme-gameboy {
+            background: radial-gradient(circle at center, #163016 0%, #091709 100%);
+            --box-bg-1: #204220; --box-bg-2: #112611; --box-border: #8bac0f; --box-glow: rgba(139, 172, 15, 0.28);
+            --gold-bg-1: #264d26; --gold-bg-2: #142b14; --gold-border: #9bbc0f; --gold-glow: rgba(155, 188, 15, 0.32);
+        }
+        body.theme-team_rocket {
+            background: radial-gradient(circle at center, #1d0c36 0%, #090312 100%);
+            --box-bg-1: #271247; --box-bg-2: #120724; --box-border: #c084fc; --box-glow: rgba(192, 132, 252, 0.28);
+            --gold-bg-1: #301557; --gold-bg-2: #16092b; --gold-border: #ef4444; --gold-glow: rgba(239, 68, 68, 0.32);
+        }
+        body.theme-safari_zone {
+            background: radial-gradient(circle at center, #0c3022 0%, #04140e 100%);
+            --box-bg-1: #134230; --box-bg-2: #092419; --box-border: #34d399; --box-glow: rgba(52, 211, 153, 0.26);
+            --gold-bg-1: #174d38; --gold-bg-2: #0b291d; --gold-border: #fbbf24; --gold-glow: rgba(251, 191, 36, 0.3);
+        }
+        body[class*="theme-"] .pixel-box {
+            background: linear-gradient(135deg, var(--box-bg-1) 0%, var(--box-bg-2) 100%);
+            border-color: var(--box-border);
+            box-shadow: 0 0 15px var(--box-glow), 0 0 0 3px #0f172a, 5px 5px 0 3px rgba(0,0,0,0.7);
+        }
+        body[class*="theme-"] .pixel-box-gold {
+            background: linear-gradient(135deg, var(--gold-bg-1) 0%, var(--gold-bg-2) 100%);
+            border-color: var(--gold-border);
+            box-shadow: 0 0 20px var(--gold-glow), 0 0 0 3px #422006, 5px 5px 0 3px rgba(0,0,0,0.7);
+        }
+
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
+
+    <div id="crtLayer" class="crt-overlay"></div>
+    <div id="pokemonPlaygroundBg" class="fixed inset-0 pointer-events-none overflow-hidden z-0"></div>
+
+    <header class="bg-slate-900/95 border-b-2 border-slate-700 px-3 py-2 sticky top-0 z-40 backdrop-blur">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-3">
+                <div id="headerLogoBall" class="w-8 h-8 flex items-center justify-center"></div>
+                <div>
+                    <h1 class="font-pixel text-xs sm:text-sm md:text-base text-yellow-400 tracking-wider flex items-center gap-2">
+                        GACHAKÉMON
+                        <span class="bg-red-600 text-white text-[9px] px-1.5 py-0.5 rounded font-sans font-bold">v2.7 RPG</span>
+                    </h1>
+                    <p class="text-[11px] text-slate-400 hidden sm:block">Coleccionismo Gachapon (60 Esferas) y Safari (251 Criaturas)</p>
+                </div>
+            </div>
+
+            <div id="topGameStatus" class="hidden items-center gap-2 bg-slate-800 border border-slate-600 px-3 py-1 rounded-full text-xs">
+                <span class="text-yellow-400 font-pixel text-[10px]" id="topRoundBadge">RONDA 1/3</span>
+                <span class="text-slate-500">|</span>
+                <span class="text-emerald-400 font-semibold" id="topSafariCountdown">Safari en: 3 rondas</span>
+                <span class="text-slate-500">|</span>
+                <span class="text-cyan-300 font-semibold" id="topHopperCount">Tolva: 60/60</span>
+            </div>
+
+            <div class="flex items-center gap-1.5 sm:gap-2">
+                <!-- Music Track Display, Toggle & Custom Uploader -->
+                <div class="flex items-center bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 gap-2">
+                    <button id="btnToggleMusic" onclick="AudioEngine.toggleMute()" class="text-yellow-400 hover:text-yellow-300 text-xs flex items-center gap-1" title="Activar/Silenciar Música">
+                        <i id="musicIcon" class="fas fa-volume-up"></i>
+                    </button>
+                    <div class="flex flex-col max-w-[150px] sm:max-w-[180px]">
+                        <span class="text-[9px] text-slate-400 uppercase tracking-wide leading-none">Música Activa:</span>
+                        <span id="currentTrackLabel" class="font-vt text-sm text-cyan-300 truncate leading-tight" title="Pista actual sonando">♪ 01. Pueblo Paleta</span>
+                    </div>
+                    <button onclick="AudioEngine.nextTrackManual()" class="text-slate-400 hover:text-white text-xs px-1" title="Siguiente pista interna">
+                        <i class="fas fa-forward"></i>
+                    </button>
+                    <label class="cursor-pointer text-yellow-400 hover:text-yellow-300 text-xs px-1" title="Cargar tu propia música (MP3/WAV/OGG desde tu dispositivo)">
+                        <i class="fas fa-folder-open"></i>
+                        <input type="file" accept="audio/*" class="hidden" onchange="if(this.files[0]) AudioEngine.loadCustomFile(this.files[0], this.files[0].name)">
+                    </label>
+                </div>
+
+                <button onclick="UI.openModal('modalMatrix')" class="bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-emerald-500 flex items-center gap-1" title="Matriz Oficial de Captura">
+                    <i class="fas fa-table"></i> <span class="hidden sm:inline">Matriz</span>
+                </button>
+                <button onclick="UI.openModal('modalCatalog')" class="bg-purple-700 hover:bg-purple-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-purple-500 flex items-center gap-1" title="Guía de 13 Balls y 251 Criaturas">
+                    <i class="fas fa-book-open"></i> <span class="hidden sm:inline">Dex/Balls</span>
+                </button>
+                <button onclick="UI.openModal('modalRules')" class="bg-blue-700 hover:bg-blue-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-blue-500 flex items-center gap-1" title="Reglamento Oficial">
+                    <i class="fas fa-scroll"></i> <span class="hidden sm:inline">Reglas</span>
+                </button>
+                <button onclick="UI.openModal('modalChangelog')" class="bg-cyan-700 hover:bg-cyan-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-cyan-400 flex items-center gap-1" title="Historial de Versiones (Changelog)">
+                    <i class="fas fa-clock-rotate-left"></i> <span class="hidden md:inline">Changelog</span>
+                </button>
+                <button onclick="UI.openModal('modalBugReport')" class="bg-lime-700 hover:bg-lime-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border-2 border-lime-400 flex items-center gap-1.5 shadow" title="Reportar Bug (Centro Cazabichos - Tipo Bicho)">
+                    <svg width="15" height="15" viewBox="0 0 24 24" class="inline-block shrink-0" fill="none">
+                        <circle cx="12" cy="12" r="11" fill="#84cc16" stroke="#0f172a" stroke-width="2"/>
+                        <ellipse cx="12" cy="13.5" rx="4.5" ry="5.5" fill="#0f172a"/>
+                        <circle cx="12" cy="7" r="2.5" fill="#0f172a"/>
+                        <path d="M9.5 5.5 L7 3 M14.5 5.5 L17 3 M7.5 11 L4 9.5 M16.5 11 L20 9.5 M7.5 14 L3.5 14 M16.5 14 L20.5 14 M8 17 L4.5 18.5 M16 17 L19.5 18.5" stroke="#0f172a" stroke-width="1.8" stroke-linecap="round"/>
+                    </svg>
+                    <span class="hidden md:inline">Reportar Bug</span>
+                </button>
+                <button onclick="UI.openModal('modalSettings')" class="bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-amber-400 flex items-center gap-1 shadow" title="Ajustes de Audio, Tamaño UI, Paleta de Colores y Fondo Animado">
+                    <i class="fas fa-sliders"></i> <span class="hidden sm:inline">Ajustes</span>
+                </button>
+                <button onclick="UI.toggleCRT()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-2 py-1.5 rounded-lg border border-slate-600" title="Filtro Monitor CRT Retro">
+                    <i class="fas fa-tv"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="relative z-10 flex-1 max-w-7xl w-full mx-auto p-2 sm:p-4 flex flex-col">
+
+        <section id="screenLobby" class="flex-1 flex flex-col items-center justify-center py-4">
+            <div class="pixel-box-gold max-w-4xl w-full p-5 sm:p-8 relative overflow-hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                    
+                    <div class="lg:col-span-5 flex flex-col items-center text-center bg-slate-900/90 p-5 rounded-xl border-2 border-slate-700">
+                        <div id="lobbyGachaPreview" class="w-40 h-48 mb-3 flex items-center justify-center"></div>
+                        <span class="bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 text-[10px] font-pixel px-2.5 py-1 rounded-full mb-2">
+                            EDICIÓN OFICIAL 60 ESFERAS
+                        </span>
+                        <h2 class="font-pixel text-base sm:text-lg text-white mb-2 leading-snug">
+                            ¡EXTRAE, COLECCIONA Y CAPTURA!
+                        </h2>
+                        <p class="text-xs text-slate-300 leading-relaxed mb-4">
+                            Gestiona tus <strong>PokéYenes (P¥)</strong>, gira la máquina de Gachapon de 60 esferas (13 tipos únicos), supera las Trampas del Team Rocket y domina las <strong>Fases de Safari</strong> cada 3 rondas con las 251 criaturas de Kanto y Johto.
+                        </p>
+                        <div class="grid grid-cols-3 gap-2 w-full text-center text-[11px] bg-slate-800/80 p-2.5 rounded-lg border border-slate-700">
+                            <div>
+                                <div class="text-yellow-400 font-pixel text-xs">60</div>
+                                <div class="text-slate-400">Balls 25mm</div>
+                            </div>
+                            <div>
+                                <div class="text-emerald-400 font-pixel text-xs">251</div>
+                                <div class="text-slate-400">Criaturas</div>
+                            </div>
+                            <div>
+                                <div class="text-purple-400 font-pixel text-xs">47+22</div>
+                                <div class="text-slate-400">Efectos/Obj</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-7 flex flex-col gap-4">
+                        <div class="border-b border-slate-700 pb-3">
+                            <h3 class="font-pixel text-sm text-yellow-400 mb-1">CONFIGURAR PARTIDA</h3>
+                            <p class="text-xs text-slate-400">Elige modo Solitario contra IA, Multijugador Local o Sala Online (2 a 4 jugadores).</p>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-300 mb-1 uppercase tracking-wider">Tu Nombre de Entrenador:</label>
+                            <input id="inputPlayerName" type="text" value="Guillermo" maxlength="16"
+                                class="w-full bg-slate-900 border-2 border-slate-600 focus:border-yellow-400 rounded-lg px-3 py-2 text-sm text-white font-semibold outline-none">
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2">
+                            <button onclick="Lobby.selectTab('solo')" id="tabBtnSolo" class="py-2.5 px-3 rounded-lg font-pixel text-[10px] border-2 border-yellow-400 bg-yellow-500/20 text-yellow-300 flex flex-col items-center gap-1">
+                                <i class="fas fa-robot text-base"></i>
+                                <span>SOLO vs IA</span>
+                            </button>
+                            <button onclick="Lobby.selectTab('local')" id="tabBtnLocal" class="py-2.5 px-3 rounded-lg font-pixel text-[10px] border-2 border-slate-700 bg-slate-800 text-slate-400 flex flex-col items-center gap-1">
+                                <i class="fas fa-users text-base"></i>
+                                <span>LOCAL (2-4J)</span>
+                            </button>
+                            <button onclick="Lobby.selectTab('online')" id="tabBtnOnline" class="py-2.5 px-3 rounded-lg font-pixel text-[10px] border-2 border-slate-700 bg-slate-800 text-slate-400 flex flex-col items-center gap-1">
+                                <i class="fas fa-globe text-base"></i>
+                                <span>ONLINE SALA</span>
+                            </button>
+                        </div>
+
+                        <div id="panelModeSolo" class="bg-slate-900/90 border border-slate-700 rounded-xl p-4 flex flex-col gap-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-semibold text-slate-300">Número total de Jugadores (1 Humano + IAs):</span>
+                                <div class="flex gap-1.5">
+                                    <button onclick="Lobby.setPlayerCount(2)" id="btnCount2" class="px-3 py-1 rounded bg-slate-800 border border-slate-600 text-xs font-bold">2J</button>
+                                    <button onclick="Lobby.setPlayerCount(3)" id="btnCount3" class="px-3 py-1 rounded bg-slate-800 border border-slate-600 text-xs font-bold">3J</button>
+                                    <button onclick="Lobby.setPlayerCount(4)" id="btnCount4" class="px-3 py-1 rounded bg-yellow-500 text-slate-950 border border-yellow-400 text-xs font-bold">4J</button>
+                                </div>
+                            </div>
+                            <div class="text-xs text-slate-400 bg-slate-800/70 p-2.5 rounded-lg border border-slate-700/80 space-y-1">
+                                <div class="font-semibold text-slate-200 mb-1"><i class="fas fa-microchip text-cyan-400 mr-1"></i> Rivales IA incluidos:</div>
+                                <div>• <strong>Bot Rocío (Coleccionista):</strong> Prioriza parejas de Amor Ball, Honor Ball y variedad.</div>
+                                <div>• <strong>Bot Marina (Estratega Safari):</strong> Ahorra para Ultra/Lujo Balls y caza criaturas Épicas/Míticas.</div>
+                                <div>• <strong>Bot Giovanni (Team Rocket):</strong> Agresivo con Mercado Negro, trampas y robos.</div>
+                            </div>
+                            <div class="flex items-center justify-between pt-1">
+                                <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
+                                    <input type="checkbox" id="chkFastSetup" class="rounded bg-slate-800 border-slate-600 text-yellow-500">
+                                    <span>Selección inicial rápida (1 clic)</span>
+                                </label>
+                                <button onclick="GameController.startLocalOrSoloGame('solo')" class="pixel-btn bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-5 py-3">
+                                    ¡JUGAR AHORA! <i class="fas fa-play ml-1"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="panelModeLocal" class="hidden bg-slate-900/90 border border-slate-700 rounded-xl p-4 flex flex-col gap-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-semibold text-slate-300">Jugadores Humanos en la mesa:</span>
+                                <div class="flex gap-1.5">
+                                    <button onclick="Lobby.setLocalCount(2)" id="btnLoc2" class="px-3 py-1 rounded bg-yellow-500 text-slate-950 border border-yellow-400 text-xs font-bold">2J</button>
+                                    <button onclick="Lobby.setLocalCount(3)" id="btnLoc3" class="px-3 py-1 rounded bg-slate-800 border border-slate-600 text-xs font-bold">3J</button>
+                                    <button onclick="Lobby.setLocalCount(4)" id="btnLoc4" class="px-3 py-1 rounded bg-slate-800 border border-slate-600 text-xs font-bold">4J</button>
+                                </div>
+                            </div>
+                            <div id="localPlayerNamesContainer" class="grid grid-cols-2 gap-2"></div>
+                            <div class="flex justify-end pt-1">
+                                <button onclick="GameController.startLocalOrSoloGame('local')" class="pixel-btn bg-blue-600 hover:bg-blue-500 text-white text-xs px-5 py-3">
+                                    ¡INICIAR PARTIDA LOCAL! <i class="fas fa-users ml-1"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="panelModeOnline" class="hidden bg-slate-900/90 border border-slate-700 rounded-xl p-4 flex flex-col gap-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs text-slate-300 font-semibold">Estado Red Sincronizada:</span>
+                                <span id="onlineAuthStatus" class="text-[11px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                    Listo (P2P / Multiventana)
+                                </span>
+                            </div>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div class="bg-slate-800/90 p-3 rounded-lg border border-slate-700 flex flex-col justify-between gap-2">
+                                    <div>
+                                        <div class="text-xs font-bold text-yellow-400 mb-1">CREAR SALA NUEVA</div>
+                                        <p class="text-[11px] text-slate-400">Genera un código de 4 letras para compartir con hasta 3 amigos (puedes rellenar huecos con IA).</p>
+                                    </div>
+                                    <button onclick="OnlineManager.createRoom()" class="pixel-btn bg-purple-600 hover:bg-purple-500 text-white text-[10px] py-2.5 w-full">
+                                        CREAR SALA ONLINE
+                                    </button>
+                                </div>
+                                <div class="bg-slate-800/90 p-3 rounded-lg border border-slate-700 flex flex-col justify-between gap-2">
+                                    <div>
+                                        <div class="text-xs font-bold text-cyan-400 mb-1">UNIRSE CON CÓDIGO</div>
+                                        <input id="inputRoomCode" type="text" placeholder="EJ: KNT2" maxlength="6"
+                                            class="w-full bg-slate-950 border border-slate-600 rounded px-2.5 py-1.5 text-center font-pixel text-xs uppercase text-yellow-300 mb-1">
+                                    </div>
+                                    <button onclick="OnlineManager.joinRoom()" class="pixel-btn bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] py-2.5 w-full">
+                                        UNIRSE A SALA
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div id="onlineRoomBox" class="hidden bg-slate-950 border-2 border-purple-500 rounded-lg p-3 space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <div class="text-xs">
+                                        <span class="text-slate-400">CÓDIGO DE SALA:</span>
+                                        <span id="labelRoomCode" class="font-pixel text-sm text-yellow-400 ml-2 select-all">----</span>
+                                        <button onclick="OnlineManager.copyRoomCode()" class="ml-2 text-xs text-cyan-400 hover:text-cyan-300 underline">
+                                            <i class="fas fa-copy"></i> Copiar
+                                        </button>
+                                    </div>
+                                    <span id="labelRoomPlayersCount" class="text-xs font-bold text-emerald-400">1/4 Jugadores</span>
+                                </div>
+                                <div id="onlinePlayersList" class="grid grid-cols-2 gap-1.5 text-xs"></div>
+                                <div class="flex items-center justify-between pt-2 border-t border-slate-800">
+                                    <button id="btnOnlineAddBot" onclick="OnlineManager.addBotToRoom()" class="bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-600 text-xs px-2.5 py-1 rounded">
+                                        + Añadir Bot IA
+                                    </button>
+                                    <button id="btnOnlineStartGame" onclick="OnlineManager.hostStartGame()" class="pixel-btn bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] px-4 py-2">
+                                        EMPEZAR PARTIDA
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="screenGame" class="hidden flex-1 flex flex-col gap-3">
+            
+            <div id="rivalsBar" class="grid grid-cols-1 sm:grid-cols-3 gap-2.5"></div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
+                
+                <div class="lg:col-span-4 pixel-box p-3.5 flex flex-col justify-between relative bg-gradient-to-b from-slate-800 to-slate-900">
+                    <div class="flex items-center justify-between border-b border-slate-700 pb-2 mb-2">
+                        <div>
+                            <h3 class="font-pixel text-[11px] text-yellow-400 flex items-center gap-1.5">
+                                <i class="fas fa-dharmachakra text-red-400"></i> MÁQUINA GACHAPON
+                            </h3>
+                            <p class="text-[11px] text-slate-400">Coste: 3 P¥ (2 P¥ impuestos + 1 P¥ ranura)</p>
+                        </div>
+                        <button onclick="UI.openHopperModal()" class="bg-slate-950 hover:bg-slate-800 text-cyan-300 border border-cyan-500/50 px-2 py-1 rounded text-[11px] font-semibold">
+                            <i class="fas fa-chart-pie mr-1"></i> <span id="hopperBadgeCount">60/60</span>
+                        </button>
+                    </div>
+
+                    <div class="flex items-center justify-around my-1 relative">
+                        <div id="gachaMachineInteractive" class="w-40 h-48 flex items-center justify-center relative"></div>
+
+                        <div class="flex flex-col items-center justify-center w-36 bg-slate-950/90 border border-slate-700 rounded-xl p-2.5 text-center min-h-[160px]">
+                            <div class="text-[10px] font-pixel text-slate-400 mb-1">ÚLTIMA EXTRACCIÓN</div>
+                            <div id="lastExtractedSlot" class="w-16 h-16 flex items-center justify-center my-1">
+                                <span class="text-xs text-slate-600 italic">Vacío</span>
+                            </div>
+                            <div id="lastExtractedName" class="text-xs font-bold text-white leading-tight">—</div>
+                            <div id="lastExtractedDesc" class="text-[10px] text-slate-400 mt-0.5 leading-tight">¡Gira la manivela en la Fase 2!</div>
+                        </div>
+                    </div>
+
+                    <div class="mt-2 pt-2 border-t border-slate-700/80">
+                        <div class="flex justify-between text-[10px] text-slate-400 mb-1">
+                            <span>Distribución en Tolva:</span>
+                            <button onclick="UI.openHopperModal()" class="text-yellow-400 hover:underline">Ver las 13 Balls</button>
+                        </div>
+                        <div id="hopperRarityBar" class="w-full h-2.5 rounded-full overflow-hidden flex bg-slate-950 border border-slate-700"></div>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-5 pixel-box p-4 flex flex-col justify-between bg-slate-900">
+                    <div>
+                        <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-950 border border-slate-700 px-3 py-2 rounded-lg mb-3">
+                            <div class="flex items-center gap-2">
+                                <span id="turnPlayerDot" class="w-3 h-3 rounded-full bg-yellow-400 animate-ping"></span>
+                                <span class="font-pixel text-xs text-white" id="turnPlayerHeader">TURNO DE GUILLERMO</span>
+                            </div>
+                            <span id="turnPhaseBadge" class="bg-yellow-500/20 text-yellow-300 border border-yellow-400/50 text-[10px] font-pixel px-2 py-0.5 rounded">
+                                FASE 2: ACCIÓN
+                            </span>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-1.5 mb-3 text-center">
+                            <div id="stepIndicator1" class="p-1.5 rounded border text-[10px] font-bold">
+                                <div class="font-pixel text-[9px]">FASE 1</div>
+                                <div>Robo hasta 3</div>
+                            </div>
+                            <div id="stepIndicator2" class="p-1.5 rounded border text-[10px] font-bold">
+                                <div class="font-pixel text-[9px]">FASE 2</div>
+                                <div>Trabajo / Gacha</div>
+                            </div>
+                            <div id="stepIndicator3" class="p-1.5 rounded border text-[10px] font-bold">
+                                <div class="font-pixel text-[9px]">FASE 3</div>
+                                <div>Objetos / Fin</div>
+                            </div>
+                        </div>
+
+                        <div id="turnActionPanel" class="bg-slate-950/90 border-2 border-slate-700 rounded-xl p-3.5 min-h-[155px] flex flex-col justify-center"></div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-2 pt-3 border-t border-slate-800 text-center text-xs mt-2">
+                        <div class="bg-slate-800/80 px-2 py-1.5 rounded border border-slate-700">
+                            <div class="text-[10px] text-slate-400">MAZO POKÉMON</div>
+                            <div class="font-pixel text-xs text-emerald-400" id="deckPokemonCount">251</div>
+                        </div>
+                        <div class="bg-slate-800/80 px-2 py-1.5 rounded border border-slate-700">
+                            <div class="text-[10px] text-slate-400">MAZO EFECTO</div>
+                            <div class="font-pixel text-xs text-cyan-400" id="deckEffectCount">47</div>
+                        </div>
+                        <div class="bg-slate-800/80 px-2 py-1.5 rounded border border-slate-700">
+                            <div class="text-[10px] text-slate-400">TICKET SAFARI</div>
+                            <div class="font-bold text-xs text-amber-300 truncate" id="ticketSafariHolderName">—</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-3 pixel-box p-3 flex flex-col justify-between bg-slate-950">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
+                        <span class="font-pixel text-[10px] text-cyan-400"><i class="fas fa-terminal mr-1"></i> REGISTRO DE PARTIDA</span>
+                        <span class="text-[10px] text-slate-500" id="logRoundIndicator">Ronda 1</span>
+                    </div>
+                    <div id="gameLogContainer" class="flex-1 overflow-y-auto space-y-1.5 max-h-[235px] pr-1 font-vt text-base leading-tight"></div>
+                </div>
+
+            </div>
+
+            <div class="pixel-box-gold p-3.5 sm:p-4 bg-slate-900/95">
+                <div class="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-700">
+                    <div class="flex items-center gap-3">
+                        <div class="bg-yellow-500 text-slate-950 font-pixel text-xs px-2.5 py-1.5 rounded font-bold" id="activeTrayTitle">
+                            TU BANDEJA
+                        </div>
+                        <div class="flex items-center gap-2 bg-slate-950 border border-yellow-500/50 px-3 py-1 rounded-lg">
+                            <i class="fas fa-coins text-yellow-400"></i>
+                            <span class="font-pixel text-sm text-yellow-300" id="activePlayerYen">3 P¥</span>
+                        </div>
+                        <div class="flex items-center gap-2 bg-slate-950 border border-purple-500/50 px-3 py-1 rounded-lg" title="Puntos de Victoria estimados actuales">
+                            <i class="fas fa-star text-purple-400"></i>
+                            <span class="font-pixel text-sm text-purple-300" id="activePlayerLivePV">0 PV</span>
+                        </div>
+                        <div id="activeTicketBadge" class="hidden bg-emerald-600/30 border border-emerald-400 text-emerald-200 text-xs px-2.5 py-1 rounded-full font-bold">
+                            🎟️ Posees el Ticket Safari (1º en Capturar)
+                        </div>
+                        <div id="activeDiscountBadge" class="hidden bg-cyan-600/30 border border-cyan-400 text-cyan-200 text-xs px-2.5 py-1 rounded-full font-bold">
+                            🏷️ Cupón Activo: Gacha a 1 P¥
+                        </div>
+                        <div id="activeDebtBadge" class="hidden bg-red-600/30 border border-red-400 text-red-200 text-xs px-2.5 py-1 rounded-full font-bold">
+                            🏦 Deuda Celedón: -7 P¥ al final (o -3 PV)
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-1.5" id="viewPlayerSwitcher"></div>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                    
+                    <div class="lg:col-span-7 flex flex-col gap-3">
+                        <div class="bg-slate-950/90 border border-slate-700 rounded-xl p-3">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-pixel text-[10px] text-yellow-400">
+                                    <i class="fas fa-grip-horizontal mr-1"></i> STAND DE POKÉBALLS EN BANDEJA (<span id="trayUnoccupiedCount">0</span>)
+                                </span>
+                                <span class="text-[11px] text-slate-400">
+                                    <i class="fas fa-shield-alt text-blue-400 mr-1"></i> La <strong>Peso Ball</strong> protege a sus 2 vecinas adyacentes
+                                </span>
+                            </div>
+                            <div id="playerCapsuleStand" class="flex items-center gap-2 overflow-x-auto py-2 px-1 min-h-[86px]"></div>
+                        </div>
+
+                        <div class="bg-slate-950/90 border border-slate-700 rounded-xl p-3">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-pixel text-[10px] text-emerald-400">
+                                    <i class="fas fa-trophy mr-1"></i> FILA DE TROFEOS: POKÉMON CAPTURADOS (<span id="trayCapturedCount">0</span>)
+                                </span>
+                                <span class="text-[11px] text-slate-400">
+                                    Las Pokéballs ocupadas siguen sumando sus PV, pasivas y objetivos
+                                </span>
+                            </div>
+                            <div id="playerTrophyRow" class="flex items-center gap-2.5 overflow-x-auto py-1 min-h-[115px]"></div>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-5 flex flex-col gap-3">
+                        <div class="bg-slate-950/90 border border-slate-700 rounded-xl p-3">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-pixel text-[10px] text-cyan-400">
+                                    <i class="fas fa-hand-sparkles mr-1"></i> MANO DE CARTAS DE OBJETO (<span id="handCountLabel">0</span>)
+                                </span>
+                                <span class="text-[10px] text-slate-400">Límite robo normal: 3</span>
+                            </div>
+                            <div id="playerHandContainer" class="grid grid-cols-1 sm:grid-cols-3 gap-2 min-h-[115px]"></div>
+                        </div>
+
+                        <div class="bg-slate-950/90 border border-slate-700 rounded-xl p-3">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="font-pixel text-[10px] text-amber-400">
+                                    <i class="fas fa-bullseye mr-1"></i> TUS 3 OBJETIVOS SECRETOS
+                                </span>
+                                <span id="gloriaWildcardSelectorWrap" class="hidden"></span>
+                            </div>
+                            <div id="playerObjectivesContainer" class="space-y-1.5"></div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <div id="modalDraftSetup" class="fixed inset-0 bg-black/85 z-50 hidden items-center justify-center p-3 overflow-y-auto">
+        <div class="pixel-box-gold max-w-4xl w-full p-5 bg-slate-900 my-auto">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3 mb-4">
+                <div>
+                    <h2 class="font-pixel text-sm sm:text-base text-yellow-400" id="draftModalTitle">PREPARACIÓN DE PARTIDA (SETUP)</h2>
+                    <p class="text-xs text-slate-300 mt-1" id="draftModalSubtitle">
+                        Elige <strong>3 Tarjetas de Objetivo Secreto</strong> (de 5) y <strong>3 Cartas de Objeto iniciales</strong> (de 5).
+                    </p>
+                </div>
+                <button onclick="GameController.autoCompleteDraft()" class="bg-slate-800 hover:bg-slate-700 text-yellow-300 border border-yellow-500/50 text-xs font-bold px-3 py-1.5 rounded-lg">
+                    <i class="fas fa-magic mr-1"></i> Autoseleccionar Mejores
+                </button>
+            </div>
+
+            <div class="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+                <div>
+                    <h3 class="font-pixel text-xs text-amber-400 mb-2">1. ELIGE 3 OBJETIVOS SECRETOS (<span id="draftObjCounter">0/3</span> seleccionados):</h3>
+                    <div id="draftObjectivesGrid" class="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-2.5"></div>
+                </div>
+
+                <div>
+                    <h3 class="font-pixel text-xs text-cyan-400 mb-2">2. ELIGE 3 CARTAS DE OBJETO INICIALES (<span id="draftEffCounter">0/3</span> seleccionadas):</h3>
+                    <div id="draftEffectsGrid" class="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-5 gap-2.5"></div>
+                </div>
+            </div>
+
+            <div class="flex justify-end pt-4 mt-4 border-t border-slate-700">
+                <button id="btnConfirmDraft" onclick="GameController.confirmDraftSelection()" disabled class="pixel-btn bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-6 py-3">
+                    CONFIRMAR Y EMPEZAR PARTIDA
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalSafari" class="fixed inset-0 bg-black/90 z-50 hidden items-center justify-center p-2 sm:p-4 overflow-y-auto">
+        <div class="pixel-box-gold max-w-5xl w-full p-4 sm:p-6 bg-slate-900 my-auto">
+            <div class="flex flex-wrap items-center justify-between gap-2 border-b-2 border-emerald-500/50 pb-3 mb-4">
+                <div class="flex items-center gap-3">
+                    <span class="bg-emerald-600 text-white font-pixel text-xs px-3 py-1.5 rounded">🌿 FASE DE SAFARI</span>
+                    <div>
+                        <h2 class="font-pixel text-sm sm:text-base text-yellow-400" id="safariPhaseTitle">¡APARECEN POKÉMON SALVAJES!</h2>
+                        <p class="text-xs text-slate-300" id="safariTurnSubtitle">Orden de captura según el Ticket Safari.</p>
+                    </div>
+                </div>
+                <button onclick="UI.openModal('modalMatrix')" class="bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-emerald-500 text-xs px-3 py-1.5 rounded font-bold">
+                    <i class="fas fa-table mr-1"></i> Ver Matriz de Captura
+                </button>
+            </div>
+
+            <div class="mb-4">
+                <div class="text-xs font-bold text-slate-300 mb-2 uppercase tracking-wider flex items-center justify-between">
+                    <span>1. Selecciona qué Pokémon salvaje de la mesa quieres intentar capturar:</span>
+                    <span class="text-amber-300 text-[11px]">Puedes elegir cualquiera de los visibles (incluso frente a otro jugador)</span>
+                </div>
+                <div id="safariWildPokemonGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3"></div>
+            </div>
+
+            <div id="safariPlayerControlsArea" class="bg-slate-950 border border-slate-700 rounded-xl p-4 space-y-3">
+                <div class="flex flex-wrap items-center justify-between gap-2">
+                    <span class="text-xs font-bold text-cyan-300">2. Elige 1 Pokéball libre de tu bandeja para lanzarla:</span>
+                    <div id="safariItemsBar" class="flex flex-wrap gap-1.5"></div>
+                </div>
+                <div id="safariBallsSelector" class="flex items-center gap-2 overflow-x-auto py-2"></div>
+
+                <div id="safariRollArena" class="bg-slate-900 border border-slate-700 rounded-lg p-3 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div id="safariRequirementText" class="text-xs text-slate-200">
+                        Selecciona un Pokémon salvaje y una Pokéball de tu bandeja para ver los requisitos de captura.
+                    </div>
+                    <div id="safariCoinsDisplay" class="flex items-center gap-3"></div>
+                    <div id="safariActionButtons" class="flex items-center gap-2"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalInteraction" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-3">
+        <div class="pixel-box max-w-2xl w-full p-5 bg-slate-900">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3 mb-3">
+                <h3 class="font-pixel text-sm text-yellow-400" id="interactionModalTitle">ACCIÓN TÁCTICA</h3>
+                <button id="btnCancelInteraction" onclick="UI.closeModal('modalInteraction')" class="text-slate-400 hover:text-white">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <p id="interactionModalDesc" class="text-xs text-slate-300 mb-4"></p>
+            <div id="interactionModalContent" class="max-h-[60vh] overflow-y-auto space-y-2 pr-1"></div>
+        </div>
+    </div>
+
+    <div id="modalAlert" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-4">
+        <div id="modalAlertBox" class="pixel-box max-w-md w-full p-5 bg-slate-900 text-center space-y-4">
+            <div id="alertIconWrap" class="text-4xl"></div>
+            <h3 id="alertTitle" class="font-pixel text-sm text-yellow-400">¡ATENCIÓN!</h3>
+            <p id="alertMessage" class="text-sm text-slate-200 leading-relaxed"></p>
+            <div id="alertExtraContent"></div>
+            <button id="btnAlertOk" onclick="UI.closeAlertModal()" class="pixel-btn bg-yellow-500 hover:bg-yellow-400 text-slate-950 text-xs px-6 py-2.5">
+                ENTENDIDO
+            </button>
+        </div>
+    </div>
+
+    <div id="modalMatrix" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-3 overflow-y-auto">
+        <div class="pixel-box max-w-4xl w-full p-5 bg-slate-900 my-auto">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3 mb-4">
+                <h3 class="font-pixel text-sm text-emerald-400">MATRIZ OFICIAL DE CAPTURA (3 MONEDAS POKEYEN)</h3>
+                <button onclick="UI.closeModal('modalMatrix')" class="text-slate-400 hover:text-white text-lg"><i class="fas fa-times"></i></button>
+            </div>
+            <p class="text-xs text-slate-300 mb-3">
+                Cruza la <strong>Rareza Interna de tu Pokéball</strong> con la <strong>Rareza Cromática del Pokémon</strong> y lanza tus 3 Monedas de Captura. Los puntos indicados son los <strong>PV que otorga la captura con éxito</strong>:
+            </p>
+            <div class="overflow-x-auto">
+                <table class="w-full text-xs text-center border-collapse border border-slate-700">
+                    <thead>
+                        <tr class="bg-slate-950 font-pixel text-[10px]">
+                            <th class="border border-slate-700 p-2 text-left">Rareza Ball \ Pokémon</th>
+                            <th class="border border-slate-700 p-2 text-slate-300">Común (Gris)</th>
+                            <th class="border border-slate-700 p-2 text-emerald-400">Poco Común (Verde)</th>
+                            <th class="border border-slate-700 p-2 text-blue-400">Raro (Azul)</th>
+                            <th class="border border-slate-700 p-2 text-purple-400">Épico (Morado)</th>
+                            <th class="border border-slate-700 p-2 text-amber-400">Legendario (Oro)</th>
+                            <th class="border border-slate-700 p-2 text-red-400">Mítico (Rojo)</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800">
+                        <tr class="bg-slate-800/40">
+                            <td class="border border-slate-700 p-2 text-left font-bold text-slate-300">1. Común (Gris)<br><span class="text-[10px] font-normal text-slate-400">Poké, Cebo, Nivel</span></td>
+                            <td class="border border-slate-700 p-2"><span class="text-emerald-400 font-bold">AUTO</span><br>(3 PV)</td>
+                            <td class="border border-slate-700 p-2"><strong>1 Cara</strong><br>(5 PV)</td>
+                            <td class="border border-slate-700 p-2"><strong>2 Caras</strong><br>(8 PV)</td>
+                            <td class="border border-slate-700 p-2"><strong>2 Caras</strong><br>(12 PV)</td>
+                            <td class="border border-slate-700 p-2"><strong>3 Caras</strong><br>(16 PV)</td>
+                            <td class="border border-slate-700 p-2"><strong>3 Caras</strong><br>(22 PV)</td>
+                        </tr>
+                        <tr class="bg-emerald-950/20">
+                            <td class="border border-slate-700 p-2 text-left font-bold text-emerald-400">2. Poco Común (Verde)<br><span class="text-[10px] font-normal text-slate-400">Super, Honor</span></td>
+                            <td class="border border-slate-700 p-2"><span class="text-emerald-400 font-bold">AUTO</span><br>(2 PV)</td>
+                            <td class="border border-slate-700 p-2"><span class="text-emerald-400 font-bold">AUTO</span><br>(4 PV)</td>
+                            <td class="border border-slate-700 p-2"><strong>1 Cara</strong><br>(6 PV)</td>
+                            <td class="border border-slate-700 p-2"><strong>2 Caras</strong><br>(9 PV)</td>
+                            <td class="border border-slate-700 p-2"><strong>2 Caras</strong><br>(13 PV)</td>
+                            <td class="border border-slate-700 p-2"><strong>3 Caras</strong><br>(18 PV)</td>
+                        </tr>
+                        <tr class="bg-blue-950/20">
+                            <td class="border border-slate-700 p-2 text-left font-bold text-blue-400">3. Rara (Azul)<br><span class="text-[10px] font-normal text-slate-400">Luna, Amor, Gloria, Peso</span></td>
+                            <td class="border border-slate-700 p-2"><span class="text-emerald-400 font-bold">AUTO</span><br>(1 PV)</td>
+                            <td class="border border-slate-700 p-2"><span class="text-emerald-400 font-bold">AUTO</span><br>(3 PV)</td>
+                            <td class="border border-slate-700 p-2"><span class="text-emerald-400 font-bold">AUTO</span><br>(5 PV)</td>
+                            <td class="border border-slate-700 p-2"><strong>1 Cara</strong><br>(7 PV)</td>
+                            <td class="border border-slate-700 p-2"><strong>2 Caras</strong><br>(10 PV)</td>
+                            <td class="border border-slate-700 p-2"><strong>2 Caras</strong><br>(14 PV)</td>
+                        </tr>
+                        <tr class="bg-purple-950/20">
+                            <td class="border border-slate-700 p-2 text-left font-bold text-purple-400">4. Épica (Morado)<br><span class="text-[10px] font-normal text-slate-400">Ultra, Lujo, Rocket*</span></td>
+                            <td class="border border-slate-700 p-2"><span class="text-emerald-400 font-bold">AUTO</span><br>(0 PV)</td>
+                            <td class="border border-slate-700 p-2"><span class="text-emerald-400 font-bold">AUTO</span><br>(2 PV)</td>
+                            <td class="border border-slate-700 p-2"><span class="text-emerald-400 font-bold">AUTO</span><br>(4 PV)</td>
+                            <td class="border border-slate-700 p-2"><span class="text-emerald-400 font-bold">AUTO</span><br>(6 PV)</td>
+                            <td class="border border-slate-700 p-2"><strong>1 Cara</strong><br>(8 PV)</td>
+                            <td class="border border-slate-700 p-2"><strong>2 Caras</strong><br>(11 PV)</td>
+                        </tr>
+                        <tr class="bg-amber-950/20">
+                            <td class="border border-slate-700 p-2 text-left font-bold text-amber-400">5. Legendaria (Oro)<br><span class="text-[10px] font-normal text-slate-400">Master Ball</span></td>
+                            <td class="border border-slate-700 p-2"><span class="text-emerald-400 font-bold">AUTO</span><br>(0 PV)</td>
+                            <td class="border border-slate-700 p-2"><span class="text-emerald-400 font-bold">AUTO</span><br>(1 PV)</td>
+                            <td class="border border-slate-700 p-2"><span class="text-emerald-400 font-bold">AUTO</span><br>(2 PV)</td>
+                            <td class="border border-slate-700 p-2"><span class="text-emerald-400 font-bold">AUTO</span><br>(4 PV)</td>
+                            <td class="border border-slate-700 p-2"><span class="text-emerald-400 font-bold">AUTO</span><br>(6 PV)</td>
+                            <td class="border border-slate-700 p-2"><span class="text-emerald-400 font-bold">AUTO</span><br>(9 PV)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-[11px] text-red-300 mt-3">
+                *<strong>Nota Rocket Ball:</strong> Actúa como categoría Épica (Morado) en tiradas de captura, pero resta <strong>-2 PV</strong> por posesión y otros <strong>-2 PV adicionales</strong> al capturar con ella por la corrupción del Team Rocket.
+            </p>
+        </div>
+    </div>
+
+    <div id="modalCatalog" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-3 overflow-y-auto">
+        <div class="pixel-box max-w-5xl w-full p-5 bg-slate-900 my-auto max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3 mb-3">
+                <div class="flex items-center gap-2">
+                    <button onclick="UI.switchCatalogTab('balls')" id="catTabBalls" class="px-3 py-1.5 rounded font-pixel text-[10px] bg-yellow-500 text-slate-950">13 POKÉBALLS (TOLVA 60)</button>
+                    <button onclick="UI.switchCatalogTab('dex')" id="catTabDex" class="px-3 py-1.5 rounded font-pixel text-[10px] bg-slate-800 text-slate-300">251 CRIATURAS (KANTO/JOHTO)</button>
+                </div>
+                <button onclick="UI.closeModal('modalCatalog')" class="text-slate-400 hover:text-white text-lg"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="catalogModalBody" class="flex-1 overflow-y-auto pr-1"></div>
+        </div>
+    </div>
+
+    <div id="modalRules" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-3 overflow-y-auto">
+        <div class="pixel-box max-w-4xl w-full p-5 bg-slate-900 my-auto max-h-[88vh] flex flex-col">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3 mb-3">
+                <h3 class="font-pixel text-sm text-yellow-400">MANUAL TÉCNICO Y REGLAMENTO GLOBAL</h3>
+                <button onclick="UI.closeModal('modalRules')" class="text-slate-400 hover:text-white text-lg"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="flex-1 overflow-y-auto space-y-3 text-xs text-slate-300 pr-2 leading-relaxed">
+                <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                    <h4 class="font-pixel text-xs text-cyan-400 mb-1">1. ESTRUCTURA DEL TURNO (3 FASES)</h4>
+                    <p>• <strong>Fase 1 (Robo y Descarte):</strong> Al principio de tu turno robas automáticamente hasta tener 3 Cartas de Efecto en mano. Si sale una <strong>Carta de Trampa</strong>, se lee en voz alta, se aplica de inmediato, se descarta y sigues robando hasta tener 3. Puedes descartar cartas no deseadas.</p>
+                    <p class="mt-1">• <strong>Fase 2 (Acción Principal - Elige 1):</strong> <strong>Trabajar</strong> (+2 P¥ del banco, más +1 P¥ extra por cada <em>Cebo Ball</em> en tu poder) o <strong>Tirar del Gacha</strong> (paga 3 P¥ al banco y extrae 1 Pokéball de la tolva de 60 unidades).</p>
+                    <p class="mt-1">• <strong>Fase 3 (Acciones Libres):</strong> Juega cualquier número de Cartas de Objeto de tu mano o activa el robo de una <em>Rocket Ball</em> guardada.</p>
+                </div>
+                <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                    <h4 class="font-pixel text-xs text-emerald-400 mb-1">2. FASE DE SAFARI (CADA 3 RONDAS: 3, 6, 9... Y AL FINAL)</h4>
+                    <p>• Se revela 1 carta de Pokémon delante de cada jugador. Empezando por el poseedor del <strong>Ticket Safari</strong>, cada jugador gasta 1 Pokéball libre de su bandeja para intentar capturar cualquiera de los Pokémon visibles lanzando las 3 Monedas de Captura.</p>
+                    <p class="mt-1">• <strong>Pokéball Ocupada:</strong> Si captura al Pokémon, la Pokéball se coloca encima del Pokémon capturado. Sigue sumando sus PV base, bonos pasivos y contando para tus objetivos, pero es inmune al Mercado Negro. Al terminar la fase, el Ticket Safari pasa al jugador de la derecha.</p>
+                </div>
+                <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                    <h4 class="font-pixel text-xs text-purple-400 mb-1">3. REGLAS DE LA ROCKET BALL Y ROBO</h4>
+                    <p>• Al extraer una Rocket Ball (o guardándola para usarla luego), puedes robar una Pokéball libre de un rival (si no está protegida por <em>Peso Ball</em> o bloqueada con <em>Escudo Silph S.A.</em>) o robar un Pokémon capturado (en cuyo caso te quedas con el Pokémon, su Pokéball original se rompe y vuelve a la tolva salvo que sea Master Ball, y tu Rocket Ball queda ocupando al Pokémon robado).</p>
+                    <p class="mt-1">• Cada Rocket Ball en tu poder al final resta <strong>-2 PV</strong>, y cada Pokémon capturado con una Rocket Ball resta otros <strong>-2 PV extra</strong>.</p>
+                </div>
+                <div class="bg-slate-950 p-3 rounded-lg border border-slate-800">
+                    <h4 class="font-pixel text-xs text-amber-400 mb-1">4. FIN DE PARTIDA Y DESEMPATES</h4>
+                    <p>• Cuando la tolva de la máquina queda vacía al concluir la ronda, se juega una última Fase de Safari y se procede al recuento final: PV de Pokéballs + Efectos pasivos + PV de Pokémon capturados + Objetivos Secretos + 1 PV por cada 2 P¥ sobrantes - Deudas y penalizaciones Rocket.</p>
+                    <p class="mt-1">• En caso de empate: 1º Pokémon de mayor rareza, 2º Más Pokéballs de mayor rareza, 3º Más P¥ restantes.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modalGameOver" class="fixed inset-0 bg-black/90 z-50 hidden items-center justify-center p-3 overflow-y-auto">
+        <div class="pixel-box-gold max-w-5xl w-full p-6 bg-slate-900 my-auto">
+            <div class="text-center mb-5">
+                <span class="bg-yellow-500 text-slate-950 font-pixel text-xs px-3 py-1 rounded-full">🏆 FIN DE LA PARTIDA 🏆</span>
+                <h2 id="winnerAnnouncementTitle" class="font-pixel text-lg sm:text-2xl text-yellow-400 mt-3">¡MAESTRO GACHAKÉMON!</h2>
+                <p id="winnerTiebreakerNote" class="text-xs text-slate-400 mt-1"></p>
+            </div>
+            <div id="finalScoreboardTableWrap" class="overflow-x-auto mb-5"></div>
+            <div class="flex justify-center gap-3">
+                <button onclick="location.reload()" class="pixel-btn bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-6 py-3">
+                    <i class="fas fa-redo mr-1"></i> NUEVA PARTIDA
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="modalSettings" class="fixed inset-0 bg-black/85 z-50 hidden items-center justify-center p-3 overflow-y-auto backdrop-blur-sm">
+        <div class="pixel-box-gold max-w-3xl w-full p-5 sm:p-6 bg-slate-900 my-auto max-h-[92vh] flex flex-col">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3 mb-4">
+                <div class="flex items-center gap-2.5">
+                    <i class="fas fa-sliders text-yellow-400 text-lg"></i>
+                    <div>
+                        <h3 class="font-pixel text-sm text-yellow-400">AJUSTES DEL JUEGO</h3>
+                        <p class="text-[11px] text-slate-400">Personaliza el audio, escala de interfaz, paleta cromática y el fondo animado</p>
+                    </div>
+                </div>
+                <button onclick="UI.closeModal('modalSettings')" class="text-slate-400 hover:text-white text-lg">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto space-y-4 pr-1 text-xs">
+                
+                <!-- 1. Audio y Volúmenes -->
+                <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-4 space-y-3">
+                    <div class="font-pixel text-[10px] text-cyan-400 flex items-center justify-between">
+                        <span><i class="fas fa-volume-high mr-1.5"></i> 1. VOLUMEN DE MÚSICA Y SONIDOS DE INTERFAZ</span>
+                        <button onclick="SettingsManager.testSfxSound()" class="bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-200 border border-cyan-500/50 px-2.5 py-1 rounded font-sans font-bold text-[11px]">
+                            🔊 Probar Sonido UI
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                        <div class="bg-slate-900/90 p-3 rounded-lg border border-slate-800">
+                            <div class="flex justify-between font-bold text-slate-200 mb-1.5">
+                                <span>🎵 Música de Fondo (MP3 / BGM):</span>
+                                <span id="labelBgmVol" class="text-yellow-400 font-pixel">70%</span>
+                            </div>
+                            <input id="sliderBgmVol" type="range" min="0" max="100" value="70"
+                                   oninput="SettingsManager.setBgmVolume(this.value)"
+                                   class="w-full accent-yellow-400 cursor-pointer h-2 bg-slate-800 rounded-lg">
+                            <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                                <span>Silencio (0%)</span>
+                                <span>Máximo (100%)</span>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-900/90 p-3 rounded-lg border border-slate-800">
+                            <div class="flex justify-between font-bold text-slate-200 mb-1.5">
+                                <span>🔔 Sonidos de Interfaz (SFX):</span>
+                                <span id="labelSfxVol" class="text-cyan-400 font-pixel">85%</span>
+                            </div>
+                            <input id="sliderSfxVol" type="range" min="0" max="100" value="85"
+                                   oninput="SettingsManager.setSfxVolume(this.value)"
+                                   onchange="SettingsManager.testSfxSound()"
+                                   class="w-full accent-cyan-400 cursor-pointer h-2 bg-slate-800 rounded-lg">
+                            <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                                <span>Silencio (0%)</span>
+                                <span>Máximo (100%)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. Tamaño de la Interfaz (UI Scale) -->
+                <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-4 space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="font-pixel text-[10px] text-amber-400"><i class="fas fa-up-right-and-down-left-from-center mr-1.5"></i> 2. TAMAÑO DE LA INTERFAZ (ESCALA UI)</span>
+                        <span id="labelUiScale" class="font-pixel text-xs text-yellow-300">100%</span>
+                    </div>
+                    <div id="uiScalePresets" class="flex flex-wrap gap-2"></div>
+                    <div class="pt-1">
+                        <input id="sliderUiScale" type="range" min="80" max="120" step="1" value="100"
+                               oninput="SettingsManager.setUiScale(this.value)"
+                               class="w-full accent-amber-400 cursor-pointer h-2 bg-slate-800 rounded-lg">
+                        <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                            <span>80% (Más compacto)</span>
+                            <span>100% (Estándar)</span>
+                            <span>120% (Más grande)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2B. Fuente Tipográfica -->
+                <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-4 space-y-3">
+                    <div class="font-pixel text-[10px] text-cyan-400">
+                        <i class="fas fa-font mr-1.5"></i> TIPOGRAFÍA DEL JUEGO (ESTILO SAGA ORIGINAL GBA/DS)
+                    </div>
+                    <div id="settingsFontsGrid" class="grid grid-cols-1 sm:grid-cols-3 gap-2.5"></div>
+                </div>
+
+                <!-- 3. Paleta de Colores -->
+                <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-4 space-y-3">
+                    <div class="font-pixel text-[10px] text-purple-400">
+                        <i class="fas fa-palette mr-1.5"></i> 3. PALETA DE COLORES DEL TABLERO
+                    </div>
+                    <div id="settingsPalettesGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5"></div>
+                </div>
+
+                <!-- 4. Fondo Animado de Pokémon Jugando con Pokéballs -->
+                <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-4 space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <span class="font-pixel text-[10px] text-emerald-400">
+                            <i class="fas fa-paw mr-1.5"></i> 4. FONDO EN MOVIMIENTO (POKÉMON JUGANDO CON POKÉBALLS)
+                        </span>
+                        <button onclick="BackgroundPlayground.randomizeSquad()" class="bg-emerald-700 hover:bg-emerald-600 text-white text-[11px] font-bold px-3 py-1 rounded-lg border border-emerald-400">
+                            🎲 Cambiar Pokémon en Pantalla
+                        </button>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center bg-slate-900/90 p-3 rounded-lg border border-slate-800">
+                        <label class="flex items-center gap-2.5 cursor-pointer font-bold text-slate-200">
+                            <input id="chkBgEnabled" type="checkbox" checked onchange="SettingsManager.toggleBgEnabled(this.checked)" class="w-4 h-4 rounded accent-emerald-500">
+                            <span>Activar Pokémon jugando en el fondo</span>
+                        </label>
+
+                        <label class="flex items-center gap-2.5 cursor-pointer font-bold text-slate-200">
+                            <input id="chkCrtEnabled" type="checkbox" checked onchange="SettingsManager.toggleCrt(this.checked)" class="w-4 h-4 rounded accent-cyan-500">
+                            <span>Activar filtro retro Monitor CRT</span>
+                        </label>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                        <div>
+                            <div class="flex justify-between font-bold text-slate-300 mb-1">
+                                <span>Visibilidad / Opacidad del fondo:</span>
+                                <span id="labelBgOpacity" class="text-emerald-400 font-pixel">48%</span>
+                            </div>
+                            <input id="sliderBgOpacity" type="range" min="15" max="90" value="48"
+                                   oninput="SettingsManager.setBgOpacity(this.value)"
+                                   class="w-full accent-emerald-400 cursor-pointer h-2 bg-slate-800 rounded-lg">
+                        </div>
+                        <div>
+                            <div class="font-bold text-slate-300 mb-1.5">Cantidad de Pokémon jugando:</div>
+                            <div id="bgCountPresets" class="flex flex-wrap gap-1.5"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-2 pt-4 mt-4 border-t border-slate-700">
+                <button onclick="SettingsManager.resetDefaults()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 text-xs font-bold px-4 py-2.5 rounded-lg">
+                    <i class="fas fa-rotate-left mr-1"></i> Restablecer Predeterminados
+                </button>
+                <button onclick="UI.closeModal('modalSettings')" class="pixel-btn bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-6 py-2.5">
+                    GUARDAR Y VOLVER AL JUEGO
+                </button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Modal Changelog (Historial de Versiones) -->
+    <div id="modalChangelog" class="fixed inset-0 bg-black/85 z-50 hidden items-center justify-center p-3 overflow-y-auto backdrop-blur-sm">
+        <div class="pixel-box-gold max-w-3xl w-full p-5 sm:p-6 bg-slate-900 my-auto max-h-[90vh] flex flex-col">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3 mb-4">
+                <div class="flex items-center gap-2.5">
+                    <i class="fas fa-clock-rotate-left text-cyan-400 text-xl"></i>
+                    <div>
+                        <h3 class="font-pixel text-sm sm:text-base text-yellow-400">HISTORIAL DE VERSIONES (CHANGELOG)</h3>
+                        <p class="text-xs text-slate-400">Registro de actualizaciones y mejoras de Gachakémon</p>
+                    </div>
+                </div>
+                <button onclick="UI.closeModal('modalChangelog')" class="text-slate-400 hover:text-white text-lg">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto space-y-4 pr-1 text-xs leading-relaxed">
+                
+                <div class="bg-slate-950 border-2 border-yellow-400/70 rounded-xl p-4 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="font-pixel text-xs text-yellow-300 bg-yellow-500/20 px-2.5 py-1 rounded border border-yellow-400/50">v2.7 RPG EDITION (ACTUAL)</span>
+                        <span class="text-emerald-400 font-bold">Última Versión</span>
+                    </div>
+                    <ul class="space-y-1.5 text-slate-200 list-disc list-inside pt-1">
+                        <li><strong>Música Gym Battle en Fase Safari:</strong> Ahora al entrar en la Fase de Captura Safari suena directamente el tema de <em>Combate de Gimnasio (Gym Battle)</em> para máxima emoción.</li>
+                        <li><strong>Nueva Tipografía Estilo Saga Original (GBA/DS):</strong> Implementada la fuente <em>Pixelify Sans + Silkscreen</em> como predeterminada, recreando los cuadros de texto de <em>Rojo Fuego / Esmeralda / Platino</em> con una legibilidad muy superior.</li>
+                        <li><strong>Rediseño de Pokédex Actualizada (Mazo de Efectos y Trampas con Drag & Drop):</strong> Ahora permite escanear las 4 primeras cartas del <strong>mazo de Cartas de Efecto y Trampas</strong>, reordenarlas arrastrándolas para dejar las <strong>3 primeras arriba del mazo</strong> en el orden elegido y enviar la <strong>4ª carta al fondo del mazo</strong>.</li>
+                        <li><strong>Opción de Pasar Turno Voluntariamente en Safari:</strong> Añadido el botón <em>"Pasar sin Capturar"</em> en la Fase de Safari para poder reservar tus Pokéballs si no quieres arriesgarlas.</li>
+                        <li><strong>Centro de Reporte de Bugs (Tipo Bicho 🐛):</strong> Nuevo botón con emblema oficial de Tipo Bicho que captura automáticamente el diagnóstico de la partida, copia el reporte al portapapeles y permite exportar el historial en <code>.txt</code>.</li>
+                        <li><strong>Historial de Versiones (Changelog):</strong> Añadido este registro interactivo de versiones en la barra superior.</li>
+                    </ul>
+                </div>
+
+                <div class="bg-slate-950 border border-cyan-500/40 rounded-xl p-4 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="font-pixel text-xs text-cyan-300">v2.6 — AJUSTES Y FONDO INTERACTIVO</span>
+                        <span class="text-slate-400">Edición Personalizable</span>
+                    </div>
+                    <ul class="space-y-1 text-slate-300 list-disc list-inside">
+                        <li><strong>Panel de Ajustes del Juego:</strong> Controles independientes de volumen para Música de Fondo (BGM) y Sonidos de Interfaz (SFX), escalador de tamaño de UI (80% a 120%) y 6 paletas cromáticas temáticas.</li>
+                        <li><strong>Fondo Animado de Pokémon:</strong> Escenario dinámico con Pokémon corriendo, saltando y pasándose los 13 tipos de Pokéballs en tiempo real.</li>
+                        <li><strong>Soporte Nativo MP3 Local:</strong> Integración directa de pistas <code>.mp3</code> originales en bucle con respaldo sintetizado de 4 canales.</li>
+                    </ul>
+                </div>
+
+                <div class="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2">
+                    <div class="flex items-center justify-between">
+                        <span class="font-pixel text-xs text-purple-300">v2.0 — DRAG & DROP Y JUEGO COMPLETO</span>
+                        <span class="text-slate-400">Motor Táctico</span>
+                    </div>
+                    <ul class="space-y-1 text-slate-300 list-disc list-inside">
+                        <li><strong>Reordenación Drag & Drop en Bandeja:</strong> Arrastra tus Pokéballs libres para proteger las más valiosas junto a tu <em>Peso Ball</em>.</li>
+                        <li><strong>Catálogo Completo 251 Criaturas:</strong> Pokédex íntegra de Kanto (#001-#151) y Johto (#152-#251) con sprites oficiales e inspector de probabilidades.</li>
+                        <li><strong>47 Cartas de Efecto y 22 Objetivos Secretos:</strong> Implementadas todas las cartas de Objeto, Reacción y Trampas globales/individuales.</li>
+                    </ul>
+                </div>
+
+            </div>
+
+            <div class="flex justify-end pt-4 mt-4 border-t border-slate-700">
+                <button onclick="UI.closeModal('modalChangelog')" class="pixel-btn bg-cyan-600 hover:bg-cyan-500 text-white text-xs px-6 py-2.5">
+                    CERRAR CHANGELOG
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Reportar Bug (Con Icono Oficial Tipo Bicho) -->
+    <div id="modalBugReport" class="fixed inset-0 bg-black/85 z-50 hidden items-center justify-center p-3 overflow-y-auto backdrop-blur-sm">
+        <div class="pixel-box max-w-2xl w-full p-5 sm:p-6 bg-slate-900 my-auto max-h-[92vh] flex flex-col" style="border-color:#84cc16;">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3 mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-lime-500/20 border-2 border-lime-400 flex items-center justify-center shadow">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" fill="#84cc16"/>
+                            <ellipse cx="12" cy="13.5" rx="4.5" ry="5.5" fill="#0f172a"/>
+                            <circle cx="12" cy="7" r="2.5" fill="#0f172a"/>
+                            <path d="M9.5 5.5 L7 3 M14.5 5.5 L17 3 M7.5 11 L4 9.5 M16.5 11 L20 9.5 M7.5 14 L3.5 14 M16.5 14 L20.5 14 M8 17 L4.5 18.5 M16 17 L19.5 18.5" stroke="#0f172a" stroke-width="1.8" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h3 class="font-pixel text-sm text-lime-400 flex items-center gap-2">
+                            REPORTAR BUG
+                            <span class="bg-lime-500 text-slate-950 text-[10px] px-2 py-0.5 rounded font-bold">TIPO BICHO</span>
+                        </h3>
+                        <p class="text-xs text-slate-300">Registra cualquier fallo o comportamiento inesperado durante la partida</p>
+                    </div>
+                </div>
+                <button onclick="UI.closeModal('modalBugReport')" class="text-slate-400 hover:text-white text-lg">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto space-y-3.5 pr-1 text-xs">
+                <div class="bg-slate-950 border border-lime-500/40 rounded-xl p-3">
+                    <div class="font-pixel text-[10px] text-lime-400 mb-1.5">📡 DIAGNÓSTICO AUTOMÁTICO DE LA PARTIDA ACTUAL:</div>
+                    <div id="bugDiagnosticBox" class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs"></div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="block font-bold text-slate-200 mb-1">Categoría del Bug:</label>
+                        <select id="bugCategorySelect" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-semibold">
+                            <option value="Mecánica de Partida / Turnos">⚙️ Mecánica de Partida / Turnos</option>
+                            <option value="Fase de Captura Safari">🌿 Fase de Captura Safari</option>
+                            <option value="Cartas de Efecto y Trampas">🃏 Cartas de Efecto y Trampas</option>
+                            <option value="Bandeja y Pokéballs (Drag & Drop)">🔴 Bandeja y Pokéballs (Drag & Drop)</option>
+                            <option value="Audio y Música MP3">🎵 Audio y Música MP3</option>
+                            <option value="Interfaz / Escalado / Fuentes">🖥️ Interfaz / Escalado / Fuentes</option>
+                            <option value="Modo Online / Multijugador">🌐 Modo Online / Multijugador</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block font-bold text-slate-200 mb-1">Nivel de Gravedad:</label>
+                        <select id="bugSeveritySelect" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-semibold">
+                            <option value="Leve (Visual / Texto)">🟢 Leve (Detalle visual o texto)</option>
+                            <option value="Moderado (Interacción)">🟡 Moderado (Afecta a una acción)</option>
+                            <option value="Crítico (Bloquea partida)">🔴 Crítico (Impide continuar el turno)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-200 mb-1">¿Qué ha ocurrido? (Descripción del Bug):</label>
+                    <textarea id="bugDescriptionInput" rows="3" placeholder="Ej: Al usar la carta X en la Fase 3 con la bandeja vacía..."
+                              class="w-full bg-slate-950 border border-slate-700 focus:border-lime-400 rounded-lg p-2.5 text-xs text-white outline-none"></textarea>
+                </div>
+
+                <div>
+                    <label class="block font-bold text-slate-200 mb-1">Pasos para reproducirlo (Opcional):</label>
+                    <input id="bugStepsInput" type="text" placeholder="Ej: 1. Tirar del Gacha -> 2. Usar Pokédex Actualizada -> 3. Arrastrar carta..."
+                           class="w-full bg-slate-950 border border-slate-700 focus:border-lime-400 rounded-lg px-3 py-2 text-xs text-white outline-none">
+                </div>
+
+                <div class="flex flex-wrap items-center justify-between gap-2 pt-1">
+                    <button onclick="BugReporter.downloadAllReportsTxt()" class="bg-slate-800 hover:bg-slate-700 text-lime-300 border border-lime-500/40 px-3 py-2 rounded-lg font-bold text-xs">
+                        <i class="fas fa-download mr-1"></i> Descargar Reportes (.txt)
+                    </button>
+                    <button onclick="BugReporter.submitBugReport()" class="pixel-btn bg-lime-600 hover:bg-lime-500 text-slate-950 font-bold text-xs px-5 py-2.5">
+                        🐞 GUARDAR Y COPIAR REPORTE
+                    </button>
+                </div>
+
+                <div class="pt-3 border-t border-slate-800">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="font-pixel text-[10px] text-lime-400">HISTORIAL DE BUGS REGISTRADOS</span>
+                        <span id="bugSavedCountBadge" class="text-[11px] text-slate-400 font-bold">0 guardado(s)</span>
+                    </div>
+                    <div id="bugSavedReportsList" class="space-y-2 max-h-36 overflow-y-auto pr-1"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="music_tracks.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
