@@ -2199,38 +2199,41 @@ const GameController = {
         return bestIndices;
     },
 
-    prepareInitialDrafts(fastSetup) {
-        const humanIndices = [];
-        this.state.players.forEach((p, idx) => {
-            if (p.isAI || fastSetup) {
-                const bestObjIds = this.evaluateBestDraftObjectives(p.draftOfferedObjs);
-                p.objectives = p.draftOfferedObjs.filter(o => bestObjIds.includes(o.id));
+	prepareInitialDrafts(fastSetup) {
+		const humanIndices = [];
+		this.state.players.forEach((p, idx) => {
+			if (p.isAI || fastSetup) {
+				const bestObjIds = this.evaluateBestDraftObjectives(p.draftOfferedObjs);
+				p.objectives = p.draftOfferedObjs.filter(o => bestObjIds.includes(o.id));
 
-                const bestEffIdxs = this.evaluateBestDraftEffects(p.draftOfferedEffs);
-                const chosenEffs = [];
-                const returnedEffs = [];
-                p.draftOfferedEffs.forEach((c, cIdx) => {
-                    if (bestEffIdxs.includes(cIdx)) chosenEffs.push(c);
-                    else returnedEffs.push(c);
-                });
-                p.hand = chosenEffs;
-                this.state.effectDeck.push(...returnedEffs);
-                delete p.draftOfferedObjs;
-                delete p.draftOfferedEffs;
-            } else {
-                humanIndices.push(idx);
-            }
-        });
+				const bestEffIdxs = this.evaluateBestDraftEffects(p.draftOfferedEffs);
+				const chosenEffs = [];
+				const returnedEffs = [];
+				p.draftOfferedEffs.forEach((c, cIdx) => {
+					if (bestEffIdxs.includes(cIdx)) chosenEffs.push(c);
+					else returnedEffs.push(c);
+				});
+				p.hand = chosenEffs;
+				this.state.effectDeck.push(...returnedEffs);
+				p.draftConfirmed = true; // Los bots confirman de inmediato
+				delete p.draftOfferedObjs;
+				delete p.draftOfferedEffs;
+			} else {
+				p.draftConfirmed = false;
+				humanIndices.push(idx);
+			}
+		});
 
-        this.state.effectDeck = this.shuffle(this.state.effectDeck);
+		this.state.effectDeck = this.shuffle(this.state.effectDeck);
 
-        if (humanIndices.length > 0) {
-            this.draftState.playerQueue = humanIndices;
-            this.openDraftModalForNextHuman();
-        } else {
-            this.beginTurn(0);
-        }
-    },
+		// Si hay jugadores humanos pendientes de confirmar
+		if (humanIndices.length > 0) {
+			this.draftState.playerQueue = humanIndices;
+			this.openDraftModalForNextHuman();
+		} else {
+			this.beginTurn(0);
+		}
+	},
 
     openDraftModalForNextHuman() {
         if (this.draftState.playerQueue.length === 0) {
@@ -2331,27 +2334,43 @@ const GameController = {
         this.renderDraftModalChoices();
     },
 
-    confirmDraftSelection() {
-        AudioEngine.sfxClick();
-        const pIdx = this.draftState.currentDraftPlayerIdx;
-        const player = this.state.players[pIdx];
+	confirmDraftSelection() {
+		AudioEngine.sfxClick();
+		const pIdx = this.draftState.currentDraftPlayerIdx;
+		const player = this.state.players[pIdx];
 
-        player.objectives = this.draftState.offeredObjectives.filter(o => this.draftState.selectedObjIds.includes(o.id));
-        player.hand = [];
-        this.draftState.offeredEffects.forEach((c, idx) => {
-            if (this.draftState.selectedEffIndices.includes(idx)) {
-                player.hand.push(c);
-            } else {
-                this.state.effectDeck.push(c);
-            }
-        });
+		player.objectives = this.draftState.offeredObjectives.filter(o => this.draftState.selectedObjIds.includes(o.id));
+		player.hand = [];
+		this.draftState.offeredEffects.forEach((c, idx) => {
+			if (this.draftState.selectedEffIndices.includes(idx)) {
+				player.hand.push(c);
+			} else {
+				this.state.effectDeck.push(c);
+			}
+		});
 
-        delete player.draftOfferedObjs;
-        delete player.draftOfferedEffs;
+		player.draftConfirmed = true;
+		delete player.draftOfferedObjs;
+		delete player.draftOfferedEffs;
 
-        this.draftState.playerQueue.shift();
-        this.openDraftModalForNextHuman();
-    },
+		this.draftState.playerQueue.shift();
+
+		// Comprobar si quedan más jugadores humanos en la cola local
+		if (this.draftState.playerQueue.length > 0) {
+			this.openDraftModalForNextHuman();
+		} else {
+			UI.closeModal('modalDraftSetup');
+			// Verificar si todos los jugadores de la partida (incluyendo online) ya han confirmado
+			const allReady = this.state.players.every(p => p.draftConfirmed);
+			if (allReady) {
+				this.addLog('✨ ¡Todos los entrenadores han confirmado sus cartas! Comienza la partida.', 'text-emerald-300 font-bold');
+				this.beginTurn(0);
+			} else {
+				UI.showAlert('Esperando rivales', 'Has confirmado tus cartas. La partida comenzará en cuanto el resto de jugadores termine su selección.', '⏳');
+			}
+		}
+		this.syncAndRender();
+	},
 
     beginTurn(playerIdx) {
         if (!this.state || this.state.gameOver) return;
