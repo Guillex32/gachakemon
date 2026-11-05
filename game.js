@@ -1,5 +1,5 @@
 // ============================================================================
-// GACHAKÉMON: MOTOR COMPLETO DE JUEGO v2.6 (game.js)
+// GACHAKÉMON: MOTOR COMPLETO DE JUEGO v2.9 (game.js)
 // Incluye:
 // - Sintetizador Polifónico de 4 Canales (Melodía + Armonía + Bajo + Percusión)
 // - Drag & Drop en Bandeja de Pokéballs (Adyacencia dinámica de Peso Ball)
@@ -115,6 +115,38 @@
     `;
     document.head.appendChild(style);
 })();
+
+
+function escapeHTML(value) {
+    return String(value ?? '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[char]);
+}
+
+function normalizeTrainerName(value, fallback = 'Jugador') {
+    let name = String(value ?? '')
+        .replace(/[\u0000-\u001f\u007f<>]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    if (/^(escribe aquí tu nick|entrenador\s+\d+|jugador\s+\d+)$/i.test(name)) name = '';
+    return (name || fallback).slice(0, 16).trim();
+}
+
+function makeUniquePlayerName(value, existingNames = [], fallback = 'Jugador') {
+    const base = normalizeTrainerName(value, fallback);
+    const used = new Set(existingNames.map(name => String(name || '').trim().toLocaleLowerCase('es-ES')));
+    if (!used.has(base.toLocaleLowerCase('es-ES'))) return base;
+    for (let suffix = 2; suffix < 100; suffix++) {
+        const ending = ` (${suffix})`;
+        const candidate = base.slice(0, 16 - ending.length).trimEnd() + ending;
+        if (!used.has(candidate.toLocaleLowerCase('es-ES'))) return candidate;
+    }
+    return `${base.slice(0, 11)}-${Date.now().toString().slice(-4)}`;
+}
+
+function getInputTrainerName(fallback = 'Jugador 1') {
+    return normalizeTrainerName(document.getElementById('inputPlayerName')?.value, fallback);
+}
 
 function formatCardText(text) {
     if (!text) return '';
@@ -905,6 +937,17 @@ const Lobby = {
         const previewEl = document.getElementById('lobbyGachaPreview');
         if (previewEl) previewEl.innerHTML = ArtRenderer.renderGachaMachineSVG(60, false);
         this.renderLocalPlayerInputs();
+        this.installKeyboardGuards();
+        const nickInput = document.getElementById('inputPlayerName');
+        nickInput?.addEventListener('input', () => {
+            const firstLocalName = document.getElementById('localNameInput_0');
+            if (firstLocalName?.dataset.autoName === 'true') {
+                firstLocalName.value = getInputTrainerName('Jugador 1');
+            }
+        });
+        document.getElementById('localNameInput_0')?.addEventListener('input', event => {
+            event.currentTarget.dataset.autoName = 'false';
+        });
 
         document.body.addEventListener('click', function startAudioOnce() {
             AudioEngine.init();
@@ -960,17 +1003,38 @@ const Lobby = {
     renderLocalPlayerInputs() {
         const container = document.getElementById('localPlayerNamesContainer');
         if (!container) return;
-        const defaults = ['Entrenador 1', 'Entrenador 2', 'Entrenador 3', 'Entrenador 4'];
-        let html = '';
-        for (let i = 0; i < this.localPlayerCount; i++) {
-            html += `
+        const mainName = getInputTrainerName('Jugador 1');
+        const defaults = [mainName, 'Jugador 2', 'Jugador 3', 'Jugador 4'];
+        container.innerHTML = Array.from({ length: this.localPlayerCount }, (_, i) => `
             <div>
                 <label class="block text-[10px] text-slate-400 mb-0.5">Jugador ${i + 1}:</label>
-                <input id="localNameInput_${i}" type="text" value="${defaults[i]}" maxlength="14"
+                <input id="localNameInput_${i}" type="text" value="${escapeHTML(defaults[i])}" ${i === 0 ? 'data-auto-name="true"' : ''} maxlength="16"
                     class="w-full bg-slate-950 border border-slate-700 rounded px-2.5 py-1.5 text-xs text-white font-semibold">
-            </div>`;
-        }
-        container.innerHTML = html;
+            </div>`).join('');
+    },
+
+    installKeyboardGuards() {
+        if (this.keyboardGuardsInstalled) return;
+        this.keyboardGuardsInstalled = true;
+        window.addEventListener('keydown', event => {
+            const key = String(event.key || '').toLowerCase();
+            const refreshShortcut = event.key === 'F5' ||
+                ((event.ctrlKey || event.metaKey) && key === 'r');
+            if (refreshShortcut) {
+                event.preventDefault();
+                event.stopPropagation();
+                return false;
+            }
+            if (event.key === 'Escape') UI.closeHeaderMenu();
+        }, true);
+
+        document.addEventListener('click', event => {
+            const panel = document.getElementById('headerActionsPanel');
+            const toggle = document.getElementById('headerMenuToggle');
+            if (panel && toggle && !panel.contains(event.target) && !toggle.contains(event.target)) {
+                UI.closeHeaderMenu();
+            }
+        });
     }
 };
 
@@ -981,210 +1045,164 @@ const OnlineManager = {
     peer: null,
     connections: [],
     hostConn: null,
-    bc: null,
+    localBC: null,
     lobbyPlayers: [],
+    lastHostAiTurnKey: null,
 
-	initChannel(code) {
-	  // 1. Limpiar conexiones previas si existían
-	  if (this.peer) {
-		this.peer.destroy();
-		this.peer = null;
-	  }
-	  if (this.localBC) {
-		this.localBC.close();
-		this.localBC = null;
-	  }
+    getLocalPlayerIndex(state = GameController.state) {
+        if (!state || !Array.isArray(state.players) || !this.myPeerId) return -1;
+        return state.players.findIndex(player => player.id === this.myPeerId);
+    },
 
-	  this.peerConnections = [];
-	  this.hostConn = null;
-	  this.pendingMessages = [];
+    getActivePlayerIndex(state = GameController.state) {
+        if (!state) return -1;
+        const safari = state.safariState;
+        if (safari && Array.isArray(safari.turnOrder)) {
+            return safari.turnOrder[safari.currentStep] ?? -1;
+        }
+        return state.turnPlayerIdx ?? -1;
+    },
 
-	  const cleanCode = String(code).trim().toUpperCase();
-	  const hostPeerId = 'gachakemon-room-v1-' + cleanCode;
+    resetConnections() {
+        if (this.peer) {
+            this.peer.destroy();
+            this.peer = null;
+        }
+        if (this.localBC) {
+            this.localBC.close();
+            this.localBC = null;
+        }
+        this.connections = [];
+        this.hostConn = null;
+        this.lastHostAiTurnKey = null;
+    },
 
-	  // Respaldo local si no hay conexión a Internet o no cargó PeerJS
-	  if (typeof Peer === 'undefined') {
-		console.warn('PeerJS no detectado. Usando modo local entre pestañas.');
-		this.localBC = new BroadcastChannel('gachakemon_room_' + cleanCode);
-		this.localBC.onmessage = (e) => this.handleNetworkMessage(e.data);
-		this.channel = {
-		  postMessage: (data) => this.localBC.postMessage(data),
-		  close: () => this.localBC.close()
-		};
-		return;
-	  }
-
-	  // 2. Servidores STUN y TURN para atravesar routers y redes móviles (4G/5G)
-	  const peerOptions = {
-		debug: 1,
-		config: {
-		  iceServers: [
-			{ urls: 'stun:stun.l.google.com:19302' },
-			{ urls: 'stun:stun1.l.google.com:19302' },
-			{
-			  urls: 'turn:openrelay.metered.ca:80',
-			  username: 'openrelayproject',
-			  credential: 'openrelayproject'
-			},
-			{
-			  urls: 'turn:openrelay.metered.ca:443',
-			  username: 'openrelayproject',
-			  credential: 'openrelayproject'
-			},
-			{
-			  urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-			  username: 'openrelayproject',
-			  credential: 'openrelayproject'
-			}
-		  ]
-		}
-	  };
-
-	  // El Host registra el ID público de la sala; los clientes crean un ID dinámico
-	  this.peer = this.isHost
-		? new Peer(hostPeerId, peerOptions)
-		: new Peer(undefined, peerOptions);
-
-	  // 3. Mantener compatibilidad total con this.channel.postMessage() en todo game.js
-	  this.channel = {
-		postMessage: (data) => {
-		  if (this.isHost) {
-			this.peerConnections.forEach((conn) => {
-			  if (conn && conn.open) conn.send(data);
-			});
-		  } else {
-			if (this.hostConn && this.hostConn.open) {
-			  this.hostConn.send(data);
-			} else {
-			  // Si joinRoom() envía el mensaje antes de abrirse el túnel, se guarda en cola
-			  this.pendingMessages.push(data);
-			}
-		  }
-		},
-		close: () => {
-		  if (this.peer) this.peer.destroy();
-		}
-	  };
-
-	  // 4. Gestión de la apertura del túnel WebRTC
-	  this.peer.on('open', (id) => {
-		console.log('[OnlineManager] Conectado a PeerJS con ID:', id);
-
-		if (this.isHost) {
-		  this.peer.on('connection', (conn) => {
-			conn.on('open', () => {
-			  this.peerConnections.push(conn);
-			});
-
-			conn.on('data', (data) => {
-			  // Reenviar a los demás clientes conectados para mantener la sala sincronizada
-			  this.peerConnections.forEach((otherConn) => {
-				if (otherConn !== conn && otherConn.open) {
-				  otherConn.send(data);
-				}
-			  });
-			  this.handleNetworkMessage(data);
-			});
-
-			conn.on('close', () => {
-			  this.peerConnections = this.peerConnections.filter((c) => c !== conn);
-			});
-		  });
-		} else {
-		  const conn = this.peer.connect(hostPeerId, { reliable: true });
-
-		  conn.on('open', () => {
-			this.hostConn = conn;
-			// Vaciar la cola de mensajes pendientes (como la solicitud de unión a la sala)
-			while (this.pendingMessages.length > 0) {
-			  const msg = this.pendingMessages.shift();
-			  this.hostConn.send(msg);
-			}
-		  });
-
-		  conn.on('data', (data) => {
-			this.handleNetworkMessage(data);
-		  });
-		}
-	  });
-
-	  this.peer.on('error', (err) => {
-		console.error('[OnlineManager] Error P2P:', err.type, err);
-		if (err.type === 'peer-unavailable') {
-		  alert('No se encontró ninguna sala activa con el código: ' + cleanCode);
-		} else if (err.type === 'unavailable-id') {
-		  alert('Ese código ya está activo. Crea una sala nueva para generar otro código.');
-		}
-	  });
-	},
+    startFallbackChannel(code) {
+        if (typeof BroadcastChannel === 'undefined') return false;
+        this.localBC = new BroadcastChannel('gachakemon_room_' + code);
+        this.localBC.onmessage = event => this.handleNetworkMessage(event.data, null, true);
+        return true;
+    },
 
     createRoom() {
         AudioEngine.sfxClick();
+        this.resetConnections();
         const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         let code = '';
         for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
         this.roomCode = code;
         this.isHost = true;
-        const playerName = (document.getElementById('inputPlayerName').value || ' ').trim();
         this.myPeerId = 'host_' + code;
-        this.lobbyPlayers = [{ id: this.myPeerId, name: playerName, isAI: false }];
-
-        this.initChannel(code);
-        this.setupPeerHost(code);
+        this.lobbyPlayers = [{ id: this.myPeerId, name: getInputTrainerName('Jugador 1'), isAI: false }];
+        this.startHostPeer(code);
         this.renderWaitingRoom();
     },
 
-    setupPeerHost(code) {
-        if (typeof Peer === 'undefined') return;
+    startHostPeer(code) {
+        if (typeof Peer === 'undefined') {
+            if (this.startFallbackChannel(code)) {
+                const status = document.getElementById('onlineAuthStatus');
+                if (status) status.textContent = 'Sala local (misma red / navegador)';
+                return;
+            }
+            UI.showAlert('Red no disponible', 'No se ha podido cargar PeerJS ni el canal local. Comprueba la conexión e inténtalo de nuevo.', '⚠️');
+            return;
+        }
+
         try {
-            if (this.peer) this.peer.destroy();
-            this.peer = new Peer('gachakemon-room-' + code);
+            this.peer = new Peer('gachakemon-room-' + code, {
+                debug: 1,
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' },
+                        { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
+                        { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
+                        { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' }
+                    ]
+                }
+            });
             this.peer.on('open', () => {
-                const st = document.getElementById('onlineAuthStatus');
-                if (st) st.textContent = 'Sala Online Activa (' + code + ')';
+                const status = document.getElementById('onlineAuthStatus');
+                if (status) status.textContent = 'Sala Online Activa (' + code + ')';
             });
-            this.peer.on('connection', (conn) => {
+            this.peer.on('connection', conn => {
                 this.connections.push(conn);
-                conn.on('data', (data) => this.handleNetworkMessage(data, conn));
+                conn.on('data', data => this.handleNetworkMessage(data, conn));
+                conn.on('close', () => {
+                    this.connections = this.connections.filter(item => item !== conn);
+                    if (conn.playerId) {
+                        this.lobbyPlayers = this.lobbyPlayers.filter(player => player.id !== conn.playerId);
+                        this.broadcastLobbyUpdate();
+                        this.renderWaitingRoom();
+                    }
+                });
+                conn.on('error', error => console.error('[OnlineManager] Error de conexión:', error));
             });
-        } catch (e) {}
+            this.peer.on('error', error => {
+                console.error('[OnlineManager] Error P2P:', error.type, error);
+                if (error.type === 'unavailable-id') {
+                    UI.showAlert('Código ocupado', 'Ese código ya está activo. Crea una sala nueva.', '⚠️');
+                } else {
+                    UI.showAlert('Error de conexión', `PeerJS: ${error.type || 'error desconocido'}.`, '⚠️');
+                }
+            });
+        } catch (error) {
+            console.error('[OnlineManager] No se pudo crear la sala:', error);
+            UI.showAlert('Error de red', 'No se ha podido crear la sala online.', '⚠️');
+        }
     },
 
     joinRoom() {
         AudioEngine.sfxClick();
         const codeInput = document.getElementById('inputRoomCode');
-        const code = (codeInput ? codeInput.value : '').trim().toUpperCase();
-        if (code.length < 3) {
-            UI.showAlert('Código Inválido', 'Introduce un código de sala válido de 4 caracteres.', '⚠️');
+        const code = String(codeInput?.value || '').trim().toUpperCase();
+        if (!/^[A-HJ-NP-Z2-9]{4}$/.test(code)) {
+            UI.showAlert('Código inválido', 'Introduce el código de sala de 4 caracteres.', '⚠️');
             return;
         }
+
+        this.resetConnections();
         this.roomCode = code;
         this.isHost = false;
-        this.myPeerId = 'client_' + Math.random().toString(36).substring(2, 7);
-        const playerName = (document.getElementById('inputPlayerName').value || 'Invitado').trim();
+        this.myPeerId = 'client_' + Math.random().toString(36).slice(2, 12);
+        const playerName = getInputTrainerName('Jugador');
 
-        this.initChannel(code);
-        if (this.bc) {
-            this.bc.postMessage({ type: 'JOIN_REQUEST', player: { id: this.myPeerId, name: playerName, isAI: false } });
-        }
-
-        if (typeof Peer !== 'undefined') {
+        if (typeof Peer === 'undefined') {
+            if (!this.startFallbackChannel(code)) {
+                UI.showAlert('Red no disponible', 'No se ha podido cargar PeerJS ni el canal local.', '⚠️');
+                return;
+            }
+            this.localBC.postMessage({ type: 'JOIN_REQUEST', player: { id: this.myPeerId, name: playerName } });
+        } else {
             try {
-                if (this.peer) this.peer.destroy();
-                this.peer = new Peer();
+                this.peer = new Peer({ debug: 1 });
                 this.peer.on('open', () => {
-                    const conn = this.peer.connect('gachakemon-room-' + code);
+                    const conn = this.peer.connect('gachakemon-room-' + code, { reliable: true });
                     this.hostConn = conn;
                     conn.on('open', () => {
-                        conn.send({ type: 'JOIN_REQUEST', player: { id: this.myPeerId, name: playerName, isAI: false } });
+                        conn.send({ type: 'JOIN_REQUEST', player: { id: this.myPeerId, name: playerName } });
+                        const status = document.getElementById('onlineAuthStatus');
+                        if (status) status.textContent = 'Conectando a sala ' + code + '…';
                     });
-                    conn.on('data', (data) => this.handleNetworkMessage(data));
+                    conn.on('data', data => this.handleNetworkMessage(data, conn));
+                    conn.on('close', () => UI.showAlert('Conexión perdida', 'Se ha cerrado la conexión con el anfitrión.', '⚠️'));
+                    conn.on('error', error => UI.showAlert('Error de conexión', error.message || 'No se pudo conectar con la sala.', '⚠️'));
                 });
-            } catch (e) {}
+                this.peer.on('error', error => {
+                    console.error('[OnlineManager] Error al unirse:', error);
+                    UI.showAlert('No se encuentra la sala', 'Comprueba el código y que el anfitrión siga conectado.', '⚠️');
+                });
+            } catch (error) {
+                console.error('[OnlineManager] No se pudo unir a la sala:', error);
+                UI.showAlert('Error de red', 'No se ha podido iniciar la conexión online.', '⚠️');
+                return;
+            }
         }
 
-        document.getElementById('onlineRoomBox').classList.remove('hidden');
-        document.getElementById('labelRoomCode').textContent = code;
+        document.getElementById('onlineRoomBox')?.classList.remove('hidden');
+        const roomLabel = document.getElementById('labelRoomCode');
+        if (roomLabel) roomLabel.textContent = code;
     },
 
     addBotToRoom() {
@@ -1192,13 +1210,13 @@ const OnlineManager = {
         AudioEngine.sfxClick();
         const botProfiles = [
             { name: 'Bot Rocío', aiProfile: 'collector' },
-            { name: 'Bot Marina', aiProfile: 'safari' },
+            { name: 'Bot Cynthia', aiProfile: 'safari' },
             { name: 'Bot Giovanni', aiProfile: 'rocket' }
         ];
         const botInfo = botProfiles[(this.lobbyPlayers.length - 1) % botProfiles.length];
         this.lobbyPlayers.push({
             id: 'bot_' + Date.now() + '_' + Math.random().toString(36).slice(2, 5),
-            name: botInfo.name,
+            name: makeUniquePlayerName(botInfo.name, this.lobbyPlayers.map(player => player.name), botInfo.name),
             isAI: true,
             aiProfile: botInfo.aiProfile
         });
@@ -1208,40 +1226,120 @@ const OnlineManager = {
 
     copyRoomCode() {
         if (!this.roomCode) return;
-        navigator.clipboard?.writeText(this.roomCode);
-        UI.showAlert('Código Copiado', `El código de sala ${this.roomCode} se ha copiado al portapapeles.`, '📋');
+        if (navigator.clipboard?.writeText) navigator.clipboard.writeText(this.roomCode);
+        UI.showAlert('Código copiado', `El código de sala ${this.roomCode} se ha copiado al portapapeles.`, '📋');
     },
 
-    handleNetworkMessage(msg) {
-        if (!msg || !msg.type) return;
+    isAuthorizedStateSender(msg, conn = null, fromFallback = false) {
+        const actorId = conn?.playerId || msg?.actorId;
+        if (!actorId) return false;
+        if (conn && conn.playerId !== actorId) return false;
+
+        const state = GameController.state;
+        if (!state || state.mode !== 'online') return false;
+        const activeIdx = this.getActivePlayerIndex(state);
+        const activePlayer = state.players[activeIdx];
+        const expectedId = activePlayer && !activePlayer.isAI ? activePlayer.id : null;
+        const hasPrivateApagonChoice = Array.isArray(state.pendingApagonPlayerIds) && state.pendingApagonPlayerIds[0] === actorId;
+        return actorId === expectedId || hasPrivateApagonChoice;
+    },
+
+    handleNetworkMessage(msg, conn = null, fromFallback = false) {
+        if (!msg || typeof msg !== 'object' || typeof msg.type !== 'string') return;
+
         if (msg.type === 'JOIN_REQUEST' && this.isHost) {
-            if (this.lobbyPlayers.length < 4 && !this.lobbyPlayers.some(p => p.id === msg.player.id)) {
-                this.lobbyPlayers.push(msg.player);
-                this.broadcastLobbyUpdate();
-                this.renderWaitingRoom();
-            }
-        } else if (msg.type === 'LOBBY_UPDATE' && !this.isHost) {
-            this.lobbyPlayers = msg.players;
+            if (this.lobbyPlayers.length >= 4 || !msg.player || !msg.player.id) return;
+            const remoteId = String(msg.player.id).replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40);
+            if (!remoteId || remoteId === this.myPeerId || this.lobbyPlayers.some(player => player.id === remoteId)) return;
+            const playerName = makeUniquePlayerName(msg.player.name, this.lobbyPlayers.map(player => player.name), `Jugador ${this.lobbyPlayers.length + 1}`);
+            const newPlayer = { id: remoteId, name: playerName, isAI: false };
+            if (conn) conn.playerId = remoteId;
+            this.lobbyPlayers.push(newPlayer);
+            this.broadcastLobbyUpdate();
             this.renderWaitingRoom();
-        } else if (msg.type === 'STATE_SYNC') {
-            GameController.receiveExternalState(msg.state);
+            return;
         }
+
+        if (msg.type === 'LOBBY_UPDATE' && !this.isHost && Array.isArray(msg.players)) {
+            this.lobbyPlayers = msg.players.slice(0, 4).map((player, index) => ({
+                id: String(player.id || `player_${index}`),
+                name: normalizeTrainerName(player.name, `Jugador ${index + 1}`),
+                isAI: !!player.isAI,
+                aiProfile: player.aiProfile || 'collector'
+            }));
+            this.renderWaitingRoom();
+            return;
+        }
+
+        if (msg.type === 'STATE_SYNC' && msg.state && Array.isArray(msg.state.players)) {
+            if (this.isHost) {
+                if (!this.isAuthorizedStateSender(msg, conn, fromFallback)) {
+                    console.warn('[OnlineManager] Sincronización rechazada: el emisor no controla el turno activo.');
+                    return;
+                }
+                const currentState = GameController.state;
+                const currentIds = currentState?.players?.map(player => player.id) || [];
+                const incomingIds = msg.state.players.map(player => player.id);
+                if (currentIds.length !== incomingIds.length || currentIds.some(id => !incomingIds.includes(id))) return;
+                const previousActiveIdx = this.getActivePlayerIndex(currentState);
+                GameController.receiveExternalState(msg.state);
+                this.broadcastGameState(GameController.state, conn);
+                this.scheduleHostAIIfNeeded(previousActiveIdx);
+            } else {
+                GameController.receiveExternalState(msg.state);
+            }
+        }
+    },
+
+    scheduleHostAIIfNeeded(previousActiveIdx) {
+        if (!this.isHost || !GameController.state) return;
+        const state = GameController.state;
+        const activeIdx = this.getActivePlayerIndex(state);
+        const player = state.players[activeIdx];
+        if (!player?.isAI || activeIdx === previousActiveIdx) return;
+        const key = state.safariState
+            ? `safari:${state.round}:${state.safariState.currentStep}:${player.id}`
+            : `turn:${state.round}:${state.turnPlayerIdx}:${player.id}`;
+        if (this.lastHostAiTurnKey === key) return;
+        this.lastHostAiTurnKey = key;
+        setTimeout(() => {
+            if (!this.isHost || !GameController.state) return;
+            const currentIdx = this.getActivePlayerIndex(GameController.state);
+            if (currentIdx !== activeIdx || !GameController.state.players[currentIdx]?.isAI) return;
+            if (GameController.state.safariState) GameController.runAISafariTurn(GameController.state.players[currentIdx]);
+            else GameController.runAITurn(GameController.state.players[currentIdx]);
+        }, state.safariState ? 1100 : 950);
     },
 
     broadcastLobbyUpdate() {
         const payload = { type: 'LOBBY_UPDATE', players: this.lobbyPlayers };
-        if (this.bc) this.bc.postMessage(payload);
-        this.connections.forEach(c => { try { c.send(payload); } catch (e) {} });
+        if (this.isHost) {
+            this.connections.forEach(conn => {
+                if (conn?.open) {
+                    try { conn.send(payload); } catch (error) { console.warn('[OnlineManager] Error enviando sala:', error); }
+                }
+            });
+            if (this.localBC) this.localBC.postMessage(payload);
+        }
     },
 
-    broadcastGameState(state) {
-        if (!this.roomCode) return;
-        const payload = { type: 'STATE_SYNC', state: JSON.parse(JSON.stringify(state)) };
-        if (this.bc) this.bc.postMessage(payload);
+    broadcastGameState(state, excludedConnection = null) {
+        if (!this.roomCode || !state) return;
+        const snapshot = JSON.parse(JSON.stringify(state));
+        const payload = { type: 'STATE_SYNC', actorId: this.myPeerId, state: snapshot };
+
         if (this.isHost) {
-            this.connections.forEach(c => { try { c.send(payload); } catch (e) {} });
-        } else if (this.hostConn) {
-            try { this.hostConn.send(payload); } catch (e) {}
+            this.connections.forEach(conn => {
+                if (conn && conn !== excludedConnection && conn.open) {
+                    try { conn.send(payload); } catch (error) { console.warn('[OnlineManager] Error retransmitiendo estado:', error); }
+                }
+            });
+            if (this.localBC) this.localBC.postMessage(payload);
+        } else if (this.hostConn?.open) {
+            try { this.hostConn.send(payload); }
+            catch (error) { console.warn('[OnlineManager] No se pudo enviar el estado al anfitrión:', error); }
+        } else if (this.localBC) {
+            this.localBC.postMessage(payload);
         }
     },
 
@@ -1249,17 +1347,20 @@ const OnlineManager = {
         const box = document.getElementById('onlineRoomBox');
         if (!box) return;
         box.classList.remove('hidden');
-        document.getElementById('labelRoomCode').textContent = this.roomCode || '----';
-        document.getElementById('labelRoomPlayersCount').textContent = `${this.lobbyPlayers.length}/4 Jugadores`;
+        const codeLabel = document.getElementById('labelRoomCode');
+        const countLabel = document.getElementById('labelRoomPlayersCount');
         const listEl = document.getElementById('onlinePlayersList');
-        listEl.innerHTML = this.lobbyPlayers.map((p, i) => `
+        if (codeLabel) codeLabel.textContent = this.roomCode || '----';
+        if (countLabel) countLabel.textContent = `${this.lobbyPlayers.length}/4 Jugadores`;
+        if (listEl) listEl.innerHTML = this.lobbyPlayers.map((player, index) => `
             <div class="bg-slate-900 border border-slate-700 px-2.5 py-1.5 rounded flex items-center justify-between">
-                <span class="font-bold text-white truncate">${i + 1}. ${p.name}</span>
-                <span class="text-[10px] px-1.5 py-0.5 rounded ${p.isAI ? 'bg-cyan-500/20 text-cyan-300' : 'bg-emerald-500/20 text-emerald-300'}">${p.isAI ? 'IA' : 'Humano'}</span>
-            </div>
-        `).join('');
-        document.getElementById('btnOnlineAddBot').style.display = (this.isHost && this.lobbyPlayers.length < 4) ? 'inline-block' : 'none';
-        document.getElementById('btnOnlineStartGame').style.display = (this.isHost && this.lobbyPlayers.length >= 2) ? 'inline-block' : 'none';
+                <span class="font-bold text-white truncate">${index + 1}. ${escapeHTML(player.name)}</span>
+                <span class="text-[10px] px-1.5 py-0.5 rounded ${player.isAI ? 'bg-cyan-500/20 text-cyan-300' : 'bg-emerald-500/20 text-emerald-300'}">${player.isAI ? 'IA' : 'Humano'}</span>
+            </div>`).join('');
+        const addBot = document.getElementById('btnOnlineAddBot');
+        const start = document.getElementById('btnOnlineStartGame');
+        if (addBot) addBot.style.display = (this.isHost && this.lobbyPlayers.length < 4) ? 'inline-block' : 'none';
+        if (start) start.style.display = (this.isHost && this.lobbyPlayers.length >= 2) ? 'inline-block' : 'none';
     },
 
     hostStartGame() {
@@ -1267,7 +1368,6 @@ const OnlineManager = {
         GameController.startOnlineGameFromLobby(this.lobbyPlayers);
     }
 };
-
 const ScoringEngine = {
     getAllPlayerBalls(player) {
         const list = [...player.tray];
@@ -1424,6 +1524,18 @@ const GameController = {
                 this.addLog(`⚡ Apagón: ${p.name} (IA) descarta "${disc.name}".`, 'text-amber-300');
             }
         });
+        if (this.state.mode === 'online') {
+            this.state.pendingApagonPlayerIds = this.state.players
+                .filter(player => !player.isAI && player.hand.length > 0)
+                .map(player => player.id);
+            const localIdx = OnlineManager.getLocalPlayerIndex(this.state);
+            this.apagonQueue = localIdx >= 0 && this.state.pendingApagonPlayerIds[0] === this.state.players[localIdx].id
+                ? [localIdx]
+                : [];
+            this.syncAndRender();
+            if (this.apagonQueue.length > 0) this.openNextApagonModal();
+            return;
+        }
         this.apagonQueue = this.state.players
             .filter(p => !p.isAI && p.hand.length > 0)
             .map(p => p.idx);
@@ -1466,14 +1578,16 @@ const GameController = {
     },
 
     executeApagonDiscard(playerIdx, handIdx) {
-        const player = this.state.players[playerIdx];
-        if (player) {
-            const disc = player.hand.splice(handIdx, 1)[0];
-            if (disc) {
-                this.state.effectDiscard.push(disc);
-                this.addLog(`⚡ Apagón: ${player.name} elige descartar "${disc.name}".`, 'text-amber-300');
-            }
+        if (!this.requireLocalControl(playerIdx)) return;
+        const player = this.state?.players?.[playerIdx];
+        const disc = player?.hand?.[handIdx];
+        if (!player || !disc) return;
+        player.hand.splice(handIdx, 1);
+        this.state.effectDiscard.push(disc);
+        if (this.state.mode === 'online') {
+            this.state.pendingApagonPlayerIds = (this.state.pendingApagonPlayerIds || []).filter(id => id !== player.id);
         }
+        this.addLog(`⚡ Apagón: ${player.name} elige descartar "${disc.name}".`, 'text-amber-300');
         this.apagonQueue.shift();
         this.openNextApagonModal();
     },
@@ -1481,6 +1595,32 @@ const GameController = {
     state: null,
     viewedPlayerIdx: 0,
     dragSourceTrayIdx: null,
+
+    isLocalPlayer(playerIdx) {
+        if (!this.state || this.state.mode !== 'online') return true;
+        return OnlineManager.getLocalPlayerIndex(this.state) === playerIdx;
+    },
+
+    getActiveTurnPlayerIndex() {
+        if (!this.state) return -1;
+        const safari = this.state.safariState;
+        return safari ? (safari.turnOrder[safari.currentStep] ?? -1) : this.state.turnPlayerIdx;
+    },
+
+    canLocalControl(playerIdx = null) {
+        if (!this.state || this.state.mode !== 'online') return true;
+        const targetIdx = playerIdx === null ? this.getActiveTurnPlayerIndex() : playerIdx;
+        const player = this.state.players[targetIdx];
+        if (!player) return false;
+        if (player.isAI) return this.state.mode !== 'online' || OnlineManager.isHost;
+        return this.isLocalPlayer(targetIdx);
+    },
+
+    requireLocalControl(playerIdx = null) {
+        if (this.canLocalControl(playerIdx)) return true;
+        UI.showAlert('Turno de otro jugador', 'En una partida online solo puedes realizar acciones durante tu propio turno.', '🔒');
+        return false;
+    },
     draftState: {
         playerQueue: [],
         currentDraftPlayerIdx: 0,
@@ -1489,6 +1629,7 @@ const GameController = {
         selectedObjIds: [],
         selectedEffIndices: []
     },
+    lastOnlineSafariTurnKey: null,
     safariTemp: {
         selectedWildIndex: 0,
         selectedTrayBallIndex: 0,
@@ -1541,7 +1682,7 @@ const GameController = {
         if (fromIdx < 0 || fromIdx === targetIdx) return;
 
         const player = this.state.players[this.viewedPlayerIdx];
-        if (!player || player.isAI) return;
+        if (!player || player.isAI || !this.canLocalControl(player.idx)) return;
         if (fromIdx >= player.tray.length || targetIdx >= player.tray.length) return;
 
         const [movedBall] = player.tray.splice(fromIdx, 1);
@@ -1553,7 +1694,7 @@ const GameController = {
 
     moveTrayBallStep(fromIdx, delta) {
         const player = this.state.players[this.viewedPlayerIdx];
-        if (!player || player.isAI) return;
+        if (!player || player.isAI || !this.canLocalControl(player.idx)) return;
         const targetIdx = fromIdx + delta;
         if (targetIdx < 0 || targetIdx >= player.tray.length) return;
 
@@ -1616,11 +1757,11 @@ const GameController = {
 
         const playersConfig = [];
         if (mode === 'solo') {
-            const humanName = (document.getElementById('inputPlayerName').value || 'Guillermo').trim();
+            const humanName = getInputTrainerName('Jugador 1');
             playersConfig.push({ id: 'p0', name: humanName, isAI: false });
             const bots = [
                 { id: 'bot1', name: 'Bot Rocío', isAI: true, aiProfile: 'collector' },
-                { id: 'bot2', name: 'Bot Marina', isAI: true, aiProfile: 'safari' },
+                { id: 'bot2', name: 'Bot Cynthia', isAI: true, aiProfile: 'safari' },
                 { id: 'bot3', name: 'Bot Giovanni', isAI: true, aiProfile: 'rocket' }
             ];
             for (let i = 0; i < Lobby.soloPlayerCount - 1; i++) {
@@ -1629,7 +1770,7 @@ const GameController = {
         } else {
             for (let i = 0; i < Lobby.localPlayerCount; i++) {
                 const inp = document.getElementById(`localNameInput_${i}`);
-                const name = (inp && inp.value.trim()) ? inp.value.trim() : `Jugador ${i + 1}`;
+                const name = normalizeTrainerName(inp?.value, `Jugador ${i + 1}`);
                 playersConfig.push({ id: 'p' + i, name, isAI: false });
             }
         }
@@ -1639,10 +1780,14 @@ const GameController = {
 
     startOnlineGameFromLobby(lobbyPlayers) {
         AudioEngine.init();
-        this.initializeMatchState(lobbyPlayers, 'online');
+        const cleanPlayers = lobbyPlayers.map((player, index) => ({
+            ...player,
+            name: normalizeTrainerName(player.name, `Jugador ${index + 1}`)
+        }));
+        this.initializeMatchState(cleanPlayers, 'online', true);
     },
 
-    initializeMatchState(playersConfig, mode) {
+    initializeMatchState(playersConfig, mode, fastSetupOverride = null) {
         const hopper = this.buildHopper60();
         const pokemonDeck = this.shuffle(POKEMON_CATALOG);
         const fullEffectDeck = this.buildEffectDeck47();
@@ -1654,7 +1799,15 @@ const GameController = {
         const nPlayers = playersConfig.length;
         const safariHolderIdx = nPlayers === 2 ? 1 : 2;
 
-        const players = playersConfig.map((pc, idx) => ({
+        const normalizedPlayers = [];
+        playersConfig.forEach((pc, idx) => {
+            normalizedPlayers.push({
+                ...pc,
+                id: pc.id || `player_${idx + 1}`,
+                name: makeUniquePlayerName(pc.name, normalizedPlayers.map(previous => previous.name), `${pc.isAI ? 'Bot' : 'Jugador'} ${idx + 1}`)
+            });
+        });
+        const players = normalizedPlayers.map((pc, idx) => ({
             idx,
             id: pc.id,
             name: pc.name,
@@ -1692,7 +1845,8 @@ const GameController = {
             players,
             lastExtractedBall: null,
             logs: [],
-            safariState: null
+            safariState: null,
+            pendingApagonPlayerIds: []
         };
 
         this.addLog(`¡Comienza la partida de Gachakémon con ${nPlayers} entrenadores!`, 'text-yellow-300');
@@ -1705,8 +1859,8 @@ const GameController = {
 
         AudioEngine.setTrack(1);
 
-        const fastSetup = document.getElementById('chkFastSetup')?.checked;
-        this.prepareInitialDrafts(fastSetup);
+        const fastSetup = fastSetupOverride ?? document.getElementById('chkFastSetup')?.checked;
+        this.prepareInitialDrafts(mode === 'online' ? true : fastSetup);
     },
 
     evaluateBestDraftObjectives(offeredObjectives) {
@@ -1990,7 +2144,7 @@ const GameController = {
         this.state.phase = 1;
         const player = this.state.players[playerIdx];
 
-        if (!player.isAI) {
+        if (!player.isAI && (this.state.mode !== 'online' || this.isLocalPlayer(playerIdx))) {
             this.viewedPlayerIdx = playerIdx;
         }
 
@@ -2000,7 +2154,7 @@ const GameController = {
         this.state.phase = 2;
         this.syncAndRender();
 
-        if (player.isAI) {
+        if (player.isAI && (this.state.mode !== 'online' || OnlineManager.isHost)) {
             setTimeout(() => this.runAITurn(player), 950);
         }
     },
@@ -2113,6 +2267,7 @@ const GameController = {
     },
 
     actionWork() {
+        if (!this.requireLocalControl(this.state?.turnPlayerIdx)) return;
         const player = this.state.players[this.state.turnPlayerIdx];
         if (this.state.phase !== 2) return;
         AudioEngine.sfxCoin();
@@ -2135,6 +2290,7 @@ const GameController = {
     crankTimeoutId: null,
 
     actionPullGacha() {
+        if (!this.requireLocalControl(this.state?.turnPlayerIdx)) return;
         const player = this.state.players[this.state.turnPlayerIdx];
         if (this.state.phase !== 2) return;
 
@@ -2205,6 +2361,7 @@ const GameController = {
     },
 
     discardCardFromHand(handIdx) {
+        if (!this.requireLocalControl(this.state?.turnPlayerIdx)) return;
         if (this.state.turnPlayerIdx !== this.viewedPlayerIdx) {
             UI.showAlert('Turno Incorrecto', 'Solo puedes descartar cartas de tu mano durante tu propio turno activo.', '⚠️');
             return;
@@ -2220,6 +2377,7 @@ const GameController = {
     },
 
     playObjectCard(handIdx) {
+        if (!this.requireLocalControl(this.state?.turnPlayerIdx)) return;
         if (this.state.turnPlayerIdx !== this.viewedPlayerIdx) {
             UI.showAlert('Turno Incorrecto', 'Solo puedes jugar cartas de objeto durante tu propio turno activo.', '⚠️');
             return;
@@ -2381,6 +2539,7 @@ const GameController = {
     },
 
     executeTicketDevolucion(handIdx, trayBallIdx) {
+        if (!this.requireLocalControl(this.state?.turnPlayerIdx)) return;
         const player = this.state.players[this.state.turnPlayerIdx];
         const ball = player.tray.splice(trayBallIdx, 1)[0];
         if (!ball) return;
@@ -2439,6 +2598,7 @@ const GameController = {
     },
 
     executeMercadoNegro(handIdx, myBallIdx, rivalIdx, rivalBallIdx) {
+        if (!this.requireLocalControl(this.state?.turnPlayerIdx)) return;
         const player = this.state.players[this.state.turnPlayerIdx];
         const rival = this.state.players[rivalIdx];
         player.yen -= 1;
@@ -2617,6 +2777,7 @@ const GameController = {
     },
 
     confirmPokedexActualizadaOrder() {
+        if (!this.requireLocalControl(this.state?.turnPlayerIdx)) return;
         const player = this.state.players[this.state.turnPlayerIdx];
         const { handIdx, cards } = this.deckOrderTemp;
         if (!cards || cards.length === 0) return;
@@ -2659,6 +2820,7 @@ const GameController = {
     },
 
     executeCapsulaTemporal(handIdx, discardIdx) {
+        if (!this.requireLocalControl(this.state?.turnPlayerIdx)) return;
         const player = this.state.players[this.state.turnPlayerIdx];
         const rec = this.state.effectDiscard.splice(discardIdx, 1)[0];
         this.consumeHandCard(player, handIdx);
@@ -2684,6 +2846,7 @@ const GameController = {
     },
 
     openRocketStealModal(trayBallIdx) {
+        if (!this.requireLocalControl(this.state?.turnPlayerIdx)) return;
         const player = this.state.players[this.state.turnPlayerIdx];
         const rocketBall = player.tray[trayBallIdx];
         if (!rocketBall || rocketBall.typeId !== 'rocketball' || !rocketBall.rocketActive) return;
@@ -2745,6 +2908,7 @@ const GameController = {
     },
 
     executeRocketSteal(myRocketTrayIdx, targetKind, rivalIdx, targetIdx) {
+        if (!this.requireLocalControl(this.state?.turnPlayerIdx)) return;
         const attacker = this.state.players[this.state.turnPlayerIdx];
         const victim = this.state.players[rivalIdx];
         const myRocketBall = attacker.tray[myRocketTrayIdx];
@@ -2800,7 +2964,7 @@ const GameController = {
     },
 
     endPlayerTurn() {
-        if (!this.state || this.state.phase !== 3) return;
+        if (!this.state || !this.requireLocalControl(this.state.turnPlayerIdx) || this.state.phase !== 3) return;
         AudioEngine.sfxClick();
 
         const nPlayers = this.state.players.length;
@@ -2930,13 +3094,15 @@ const GameController = {
 
         UI.renderSafariModal();
 
-        if (player.isAI) {
+        if (this.state.mode === 'online') OnlineManager.broadcastGameState(this.state);
+        if (player.isAI && (this.state.mode !== 'online' || OnlineManager.isHost)) {
             setTimeout(() => this.runAISafariTurn(player), 1100);
         }
     },
 
     selectSafariWild(wIdx) {
         const saf = this.state.safariState;
+        if (!saf || !this.requireLocalControl(saf.turnOrder[saf.currentStep])) return;
         if (!saf || saf.wildSlots[wIdx].capturedBy || this.safariTemp.awaitingGoldenBerry) return;
         AudioEngine.sfxClick();
         this.safariTemp.selectedWildIndex = wIdx;
@@ -2944,7 +3110,8 @@ const GameController = {
     },
 
     selectSafariBall(bIdx) {
-        if (this.safariTemp.awaitingGoldenBerry) return;
+        const saf = this.state?.safariState;
+        if (!saf || !this.requireLocalControl(saf.turnOrder[saf.currentStep]) || this.safariTemp.awaitingGoldenBerry) return;
         AudioEngine.sfxClick();
         this.safariTemp.selectedTrayBallIndex = bIdx;
         UI.renderSafariModal();
@@ -2953,6 +3120,7 @@ const GameController = {
     useSafariHandItem(handIdx) {
         const saf = this.state.safariState;
         const activeIdx = saf.turnOrder[saf.currentStep];
+        if (!this.requireLocalControl(activeIdx)) return;
         const player = this.state.players[activeIdx];
         const card = player.hand[handIdx];
         if (!card) return;
@@ -2981,6 +3149,7 @@ const GameController = {
             this.state.pokemonDeck.push(...skipped);
             if (replacement) wildSlot.pokemon = replacement;
             this.addLog(`🧴 ${player.name} usa Repelente y aparece ¡${wildSlot.pokemon.name} (${wildSlot.pokemon.rarity})!`, 'text-emerald-300');
+            if (this.state.mode === 'online') OnlineManager.broadcastGameState(this.state);
             UI.renderSafariModal();
         } else if (card.id === 'superrepelente') {
             this.consumeHandCard(player, handIdx);
@@ -2999,11 +3168,13 @@ const GameController = {
             this.state.pokemonDeck.push(...skipped);
             if (replacement) wildSlot.pokemon = replacement;
             this.addLog(`✨ ${player.name} usa Superrepelente y aparece ¡${wildSlot.pokemon.name} (${wildSlot.pokemon.rarity})!`, 'text-emerald-300');
+            if (this.state.mode === 'online') OnlineManager.broadcastGameState(this.state);
             UI.renderSafariModal();
         } else if (card.id === 'captura_critica') {
             this.consumeHandCard(player, handIdx);
             this.safariTemp.criticalActive = true;
             this.addLog(`🎯 ${player.name} activa Captura Crítica: el requisito se reduce a 1 sola Cara.`, 'text-cyan-300');
+            if (this.state.mode === 'online') OnlineManager.broadcastGameState(this.state);
             UI.renderSafariModal();
         } else if (card.id === 'baya_dorada' && this.safariTemp.awaitingGoldenBerry) {
             this.consumeHandCard(player, handIdx);
@@ -3016,8 +3187,10 @@ const GameController = {
     },
 
     launchSafariCaptureAttempt() {
-        const saf = this.state.safariState;
+        const saf = this.state?.safariState;
+        if (!saf) return;
         const activeIdx = saf.turnOrder[saf.currentStep];
+        if (!this.requireLocalControl(activeIdx)) return;
         const player = this.state.players[activeIdx];
         const wildSlot = saf.wildSlots[this.safariTemp.selectedWildIndex];
         const ball = player.tray[this.safariTemp.selectedTrayBallIndex];
@@ -3082,9 +3255,11 @@ const GameController = {
     },
 
     completeSafariCaptureAttempt(isSuccess) {
-        const saf = this.state.safariState;
+        const saf = this.state?.safariState;
+        if (!saf) return;
         const activeIdx = saf.turnOrder[saf.currentStep];
         const player = this.state.players[activeIdx];
+        if (!player || !this.requireLocalControl(activeIdx)) return;
         const wildSlot = saf.wildSlots[this.safariTemp.selectedWildIndex];
         const ball = player.tray[this.safariTemp.selectedTrayBallIndex];
         const matrixEntry = CAPTURE_MATRIX[ball.rarity][wildSlot.pokemon.rarity];
@@ -3114,9 +3289,11 @@ const GameController = {
     },
 
     skipSafariTurnNoBalls() {
-        const saf = this.state.safariState;
+        const saf = this.state?.safariState;
+        if (!saf) return;
         const activeIdx = saf.turnOrder[saf.currentStep];
         const player = this.state.players[activeIdx];
+        if (!player || !this.requireLocalControl(activeIdx)) return;
         this.addLog(`🌿 ${player.name} no dispone de Pokéballs libres en su bandeja para capturar en esta Fase de Safari.`, 'text-slate-400');
         saf.currentStep++;
         this.advanceSafariTurn();
@@ -3126,6 +3303,7 @@ const GameController = {
         const saf = this.state.safariState;
         if (!saf || this.safariTemp.isRollingCoins) return;
         const activeIdx = saf.turnOrder[saf.currentStep];
+        if (!this.requireLocalControl(activeIdx)) return;
         const player = this.state.players[activeIdx];
         AudioEngine.sfxClick();
         this.addLog(`🌿 ${player.name} decide pasar su turno en la Fase de Safari sin capturar para conservar sus Pokéballs.`, 'text-slate-300');
@@ -3254,7 +3432,7 @@ const GameController = {
                 ${results.map((r, i) => `
                 <tr class="${i === 0 ? 'bg-yellow-500/15 font-bold' : 'bg-slate-900'}">
                     <td class="border border-slate-700 p-2.5 text-left text-white">
-                        ${i === 0 ? '🥇 ' : (i === 1 ? '🥈 ' : (i === 2 ? '🥉 ' : '4º '))} ${r.player.name}
+                        ${i === 0 ? '🥇 ' : (i === 1 ? '🥈 ' : (i === 2 ? '🥉 ' : '4º '))} ${escapeHTML(r.player.name)}
                     </td>
                     <td class="border border-slate-700 p-2 text-slate-200">+${r.bd.baseBallPV}</td>
                     <td class="border border-slate-700 p-2 text-cyan-300">+${r.bd.passiveBallPV}</td>
@@ -3273,7 +3451,7 @@ const GameController = {
 
     setGloriaWildcard(typeId) {
         const player = this.state.players[this.viewedPlayerIdx];
-        if (!player) return;
+        if (!player || !this.isLocalPlayer(player.idx)) return;
         player.gloriaWildcardChoice = typeId;
         this.syncAndRender();
     },
@@ -3285,9 +3463,48 @@ const GameController = {
     },
 
     receiveExternalState(extState) {
+        if (!extState || !Array.isArray(extState.players)) return;
+        if (extState.mode === 'online') {
+            const ownIndex = OnlineManager.getLocalPlayerIndex(extState);
+            if (ownIndex < 0) {
+                console.warn('[OnlineManager] Estado ignorado: este cliente no pertenece a la sala.');
+                return;
+            }
+            this.viewedPlayerIdx = ownIndex;
+        }
         this.state = extState;
-        document.getElementById('screenLobby').classList.add('hidden');
-        document.getElementById('screenGame').classList.remove('hidden');
+        if (extState.mode === 'online') {
+            const ownIndex = OnlineManager.getLocalPlayerIndex(extState);
+            const ownId = extState.players[ownIndex].id;
+            const safari = extState.safariState;
+            if (safari) {
+                const activeIdx = safari.turnOrder?.[safari.currentStep] ?? -1;
+                const turnKey = `${extState.round}:${safari.currentStep}:${activeIdx}`;
+                if (turnKey !== this.lastOnlineSafariTurnKey) {
+                    this.lastOnlineSafariTurnKey = turnKey;
+                    const firstWild = safari.wildSlots.findIndex(slot => !slot.capturedBy);
+                    this.safariTemp = { selectedWildIndex: firstWild >= 0 ? firstWild : 0, selectedTrayBallIndex: 0, criticalActive: false, lastRollCoins: null, awaitingGoldenBerry: false, isRollingCoins: false };
+                }
+            } else {
+                this.lastOnlineSafariTurnKey = null;
+            }
+            if (ownId && extState.pendingApagonPlayerIds?.[0] === ownId && this.apagonQueue.length === 0) {
+                this.apagonQueue = [ownIndex];
+                setTimeout(() => this.openNextApagonModal(), 0);
+            }
+        }
+        document.getElementById('screenLobby')?.classList.add('hidden');
+        document.getElementById('screenGame')?.classList.remove('hidden');
+        const topStatus = document.getElementById('topGameStatus');
+        topStatus?.classList.remove('hidden');
+        topStatus?.classList.add('flex');
+        const safariModal = document.getElementById('modalSafari');
+        if (extState.safariState) {
+            if (safariModal?.classList.contains('hidden')) UI.openModal('modalSafari');
+            UI.renderSafariModal();
+        } else if (safariModal && !safariModal.classList.contains('hidden')) {
+            UI.closeModal('modalSafari');
+        }
         UI.renderAll();
     },
 
@@ -3477,7 +3694,32 @@ const UI = {
         AudioEngine.sfxClick();
     },
 
+    toggleHeaderMenu() {
+        const panel = document.getElementById('headerActionsPanel');
+        const toggle = document.getElementById('headerMenuToggle');
+        const icon = document.getElementById('headerMenuIcon');
+        if (!panel || !toggle) return;
+        const isOpening = panel.classList.contains('hidden');
+        panel.classList.toggle('hidden', !isOpening);
+        toggle.setAttribute('aria-expanded', String(isOpening));
+        toggle.setAttribute('aria-label', isOpening ? 'Ocultar menú' : 'Mostrar menú');
+        if (icon) icon.className = isOpening ? 'fas fa-xmark' : 'fas fa-bars';
+    },
+
+    closeHeaderMenu() {
+        const panel = document.getElementById('headerActionsPanel');
+        const toggle = document.getElementById('headerMenuToggle');
+        const icon = document.getElementById('headerMenuIcon');
+        if (panel) panel.classList.add('hidden');
+        if (toggle) {
+            toggle.setAttribute('aria-expanded', 'false');
+            toggle.setAttribute('aria-label', 'Mostrar menú');
+        }
+        if (icon) icon.className = 'fas fa-bars';
+    },
+
     openModal(id) {
+        this.closeHeaderMenu();
         const el = document.getElementById(id);
         if (!el) return;
         if (id === 'modalCatalog') this.renderCatalogModal();
@@ -3681,6 +3923,10 @@ const UI = {
     renderAll() {
         const st = GameController.state;
         if (!st) return;
+        if (st.mode === 'online') {
+            const ownIndex = OnlineManager.getLocalPlayerIndex(st);
+            if (ownIndex >= 0) GameController.viewedPlayerIdx = ownIndex;
+        }
 
         const remSafari = 3 - ((st.round - 1) % 3);
         document.getElementById('topRoundBadge').textContent = st.isFinalRound ? `¡RONDA FINAL!` : `RONDA ${st.round}`;
@@ -3738,12 +3984,13 @@ const UI = {
             const isTurn = st.turnPlayerIdx === p.idx;
             const livePV = ScoringEngine.calculateBreakdown(p, false).totalPV;
             const hasTicket = st.safariHolderIdx === p.idx;
+            const canSwitch = st.mode !== 'online';
             return `
-            <div onclick="GameController.viewedPlayerIdx = ${p.idx}; UI.renderAll()"
-                 class="cursor-pointer pixel-box p-2.5 transition ${isTurn ? 'border-yellow-400 bg-slate-800' : 'bg-slate-900/90 opacity-90'}">
+            <div ${canSwitch ? `onclick="GameController.viewedPlayerIdx = ${p.idx}; UI.renderAll()"` : ''}
+                 class="${canSwitch ? 'cursor-pointer' : 'cursor-default'} pixel-box p-2.5 transition ${isTurn ? 'border-yellow-400 bg-slate-800' : 'bg-slate-900/90 opacity-90'}">
                 <div class="flex items-center justify-between mb-1.5">
                     <div class="flex items-center gap-1.5">
-                        <span class="font-pixel text-[10px] ${isTurn ? 'text-yellow-400' : 'text-white'}">${p.name}</span>
+                        <span class="font-pixel text-[10px] ${isTurn ? 'text-yellow-400' : 'text-white'}">${escapeHTML(p.name)}</span>
                         ${hasTicket ? '<span title="Posee el Ticket Safari">🎟️</span>' : ''}
                     </div>
                     <div class="flex items-center gap-2 text-xs font-bold">
@@ -3787,11 +4034,20 @@ const UI = {
         document.getElementById('ticketSafariHolderName').textContent = st.players[st.safariHolderIdx].name;
 
         const panel = document.getElementById('turnActionPanel');
+        if (st.mode === 'online' && !GameController.canLocalControl(st.turnPlayerIdx)) {
+            panel.innerHTML = `
+                <div class="text-center py-4 space-y-1">
+                    <i class="fas fa-lock text-xl text-amber-400"></i>
+                    <div class="font-pixel text-xs text-amber-300">Esperando a ${escapeHTML(activePlayer.name)}</div>
+                    <p class="text-[11px] text-slate-400">Los controles aparecerán cuando llegue tu turno.</p>
+                </div>`;
+            return;
+        }
         if (activePlayer.isAI) {
             panel.innerHTML = `
             <div class="text-center py-4 space-y-2">
                 <i class="fas fa-robot text-2xl text-cyan-400 animate-bounce"></i>
-                <div class="font-pixel text-xs text-cyan-300">${activePlayer.name} está calculando su jugada...</div>
+                <div class="font-pixel text-xs text-cyan-300">${escapeHTML(activePlayer.name)} está calculando su jugada...</div>
             </div>`;
             return;
         }
@@ -3834,8 +4090,8 @@ const UI = {
     renderActivePlayerBoard() {
         const st = GameController.state;
         const p = st.players[GameController.viewedPlayerIdx];
-        const isCurrentTurnPlayer = (st.turnPlayerIdx === p.idx && !p.isAI);
-        const canReorderTray = !p.isAI;
+        const isCurrentTurnPlayer = (st.turnPlayerIdx === p.idx && !p.isAI && GameController.canLocalControl(p.idx));
+        const canReorderTray = isCurrentTurnPlayer;
         const bd = ScoringEngine.calculateBreakdown(p, false);
 
         const trayTitleEl = document.getElementById('activeTrayTitle');
@@ -3847,12 +4103,13 @@ const UI = {
         document.getElementById('activeDiscountBadge').classList.toggle('hidden', !p.discountActive);
         document.getElementById('activeDebtBadge').classList.toggle('hidden', p.celedonLoans === 0);
 
-        document.getElementById('viewPlayerSwitcher').innerHTML = st.players.map((pl, idx) => `
-            <button onclick="GameController.viewedPlayerIdx = ${idx}; UI.renderAll()"
-                    class="px-2 py-1 rounded text-[10px] font-bold border ${idx === p.idx ? 'bg-yellow-500 text-slate-950 border-yellow-400' : 'bg-slate-800 text-slate-300 border-slate-700'}">
-                ${pl.name}
-            </button>
-        `).join('');
+        document.getElementById('viewPlayerSwitcher').innerHTML = st.mode === 'online'
+            ? `<span class="px-2 py-1 rounded text-[10px] font-bold border bg-slate-800 text-cyan-300 border-cyan-700">Tu tablero: ${escapeHTML(p.name)}</span>`
+            : st.players.map((pl, idx) => `
+                <button onclick="GameController.viewedPlayerIdx = ${idx}; UI.renderAll()"
+                        class="px-2 py-1 rounded text-[10px] font-bold border ${idx === p.idx ? 'bg-yellow-500 text-slate-950 border-yellow-400' : 'bg-slate-800 text-slate-300 border-slate-700'}">
+                    ${escapeHTML(pl.name)}
+                </button>`).join('');
 
         document.getElementById('trayUnoccupiedCount').textContent = p.tray.length;
         const standEl = document.getElementById('playerCapsuleStand');
@@ -4044,11 +4301,14 @@ const UI = {
         }).join('');
 
         const safariItemsBar = document.getElementById('safariItemsBar');
-        const safariCards = player.hand
+        const canControlSafari = GameController.canLocalControl(activeIdx);
+        const safariCards = canControlSafari ? player.hand
             .map((c, hIdx) => ({ c, hIdx }))
-            .filter(item => item.c.timing === 'safari' || (item.c.timing === 'safari_reaction' && GameController.safariTemp.awaitingGoldenBerry));
+            .filter(item => item.c.timing === 'safari' || (item.c.timing === 'safari_reaction' && GameController.safariTemp.awaitingGoldenBerry)) : [];
 
-        safariItemsBar.innerHTML = safariCards.map(({ c, hIdx }) => `
+        safariItemsBar.innerHTML = !canControlSafari && st.mode === 'online'
+            ? '<span class="text-[11px] text-slate-500 italic">Mano privada del entrenador activo.</span>'
+            : safariCards.map(({ c, hIdx }) => `
             <button onclick="GameController.useSafariHandItem(${hIdx})"
                     title="${c.desc}"
                     class="bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg border border-emerald-400">
@@ -4077,10 +4337,17 @@ const UI = {
         const actionsEl = document.getElementById('safariActionButtons');
         const selectedWild = saf.wildSlots[GameController.safariTemp.selectedWildIndex];
 
+        if (st.mode === 'online' && !canControlSafari && !player.isAI) {
+            reqTextEl.innerHTML = 'Esperando la jugada del entrenador activo.';
+            coinsDisplay.innerHTML = '';
+            actionsEl.innerHTML = '<span class="text-xs text-amber-300">🔒 Turno privado de otro jugador.</span>';
+            return;
+        }
+
         if (player.tray.length === 0) {
             reqTextEl.innerHTML = `Sin Pokéballs libres disponibles.`;
             coinsDisplay.innerHTML = '';
-            actionsEl.innerHTML = !player.isAI ? `
+            actionsEl.innerHTML = (!player.isAI && canControlSafari) ? `
                 <button onclick="GameController.skipSafariTurnNoBalls()" class="pixel-btn bg-slate-700 text-white text-xs px-4 py-2">
                     PASAR TURNO SAFARI
                 </button>` : '';
