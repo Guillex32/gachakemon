@@ -960,7 +960,7 @@ const Lobby = {
     renderLocalPlayerInputs() {
         const container = document.getElementById('localPlayerNamesContainer');
         if (!container) return;
-        const defaults = ['Guillermo', 'Rocío', 'Marina', 'Entrenador 4'];
+        const defaults = ['Entrenador 1', 'Entrenador 2', 'Entrenador 3', 'Entrenador 4'];
         let html = '';
         for (let i = 0; i < this.localPlayerCount; i++) {
             html += `
@@ -1705,7 +1705,7 @@ const GameController = {
 
         AudioEngine.setTrack(1);
 
-        const fastSetup = document.getElementById('chkFastSetup')?.checked || mode === 'online';
+        const fastSetup = document.getElementById('chkFastSetup')?.checked;
         this.prepareInitialDrafts(fastSetup);
     },
 
@@ -2205,6 +2205,10 @@ const GameController = {
     },
 
     discardCardFromHand(handIdx) {
+        if (this.state.turnPlayerIdx !== this.viewedPlayerIdx) {
+            UI.showAlert('Turno Incorrecto', 'Solo puedes descartar cartas de tu mano durante tu propio turno activo.', '⚠️');
+            return;
+        }
         const player = this.state.players[this.state.turnPlayerIdx];
         if (player.isAI) return;
         const card = player.hand.splice(handIdx, 1)[0];
@@ -2216,6 +2220,10 @@ const GameController = {
     },
 
     playObjectCard(handIdx) {
+        if (this.state.turnPlayerIdx !== this.viewedPlayerIdx) {
+            UI.showAlert('Turno Incorrecto', 'Solo puedes jugar cartas de objeto durante tu propio turno activo.', '⚠️');
+            return;
+        }
         const player = this.state.players[this.state.turnPlayerIdx];
         const card = player.hand[handIdx];
         if (!card) return;
