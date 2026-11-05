@@ -61,6 +61,57 @@
         .kw-neg { color: #f87171; font-weight: 800; }
         .kw-safari { color: #4ade80; font-weight: 800; }
         .kw-ball { color: #38bdf8; font-weight: 800; }
+
+        @keyframes bingoDrumSpin {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(110deg) scale(1.04); }
+            50% { transform: rotate(220deg) scale(0.98); }
+            75% { transform: rotate(310deg) scale(1.03); }
+            100% { transform: rotate(360deg) scale(1); }
+        }
+        .animate-bingo-drum {
+            transform-origin: 80px 62px;
+            animation: bingoDrumSpin 0.55s linear infinite;
+        }
+        @keyframes bingoBallDropRoll {
+            0% {
+                transform: translate(-130px, -110px) rotate(-720deg) scale(0.25);
+                opacity: 0;
+            }
+            45% {
+                transform: translate(18px, 14px) rotate(90deg) scale(1.15);
+                opacity: 1;
+            }
+            68% {
+                transform: translate(-10px, -8px) rotate(-35deg) scale(0.95);
+            }
+            85% {
+                transform: translate(4px, 3px) rotate(12deg) scale(1.03);
+            }
+            100% {
+                transform: translate(0, 0) rotate(0deg) scale(1);
+                opacity: 1;
+            }
+        }
+        .animate-bingo-ball-drop {
+            animation: bingoBallDropRoll 0.85s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        @keyframes bingoSlotRoll {
+            0% { transform: translateX(-55px) rotate(-540deg) scale(0.3); opacity: 0; }
+            65% { transform: translateX(8px) rotate(35deg) scale(1.14); opacity: 1; }
+            85% { transform: translateX(-3px) rotate(-10deg) scale(0.97); }
+            100% { transform: translateX(0) rotate(0deg) scale(1); opacity: 1; }
+        }
+        .animate-bingo-slot {
+            animation: bingoSlotRoll 0.75s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        @keyframes bingoBurstPulse {
+            0%, 100% { transform: scale(1); opacity: 0.75; }
+            50% { transform: scale(1.14); opacity: 1; }
+        }
+        .animate-bingo-glow {
+            animation: bingoBurstPulse 1.6s ease-in-out infinite;
+        }
     `;
     document.head.appendChild(style);
 })();
@@ -323,7 +374,7 @@ const OBJECTIVES_CATALOG = [
     { id: 'obj_15', name: 'Reclutamiento Rocket', category: 'E: Capturas', pv: 7, desc: 'Capturar al menos 2 Pokémon utilizando Rocket Balls en las Fases de Captura.' },
     { id: 'obj_16', name: 'Sincronía Perfecta', category: 'E: Capturas', pv: 6, desc: 'Capturar al menos 2 Pokémon utilizando Pokéballs que coincidan exactamente con su color/rareza.' },
     { id: 'obj_17', name: 'Espectro de Rarezas', category: 'E: Capturas', pv: 8, desc: 'Tener capturados al menos 3 Pokémon con distinto color cromático de fondo.' },
-    { id: 'obj_18', name: 'Pokédex Biregional', category: 'E: Capturas', pv: 5, desc: 'Tener capturado al menos 1 Pokémon de la región de Kanto (#001-#151) y 1 de Johto (#152-#251).' },
+    { id: 'obj_18', name: 'Pokédex Biregional', category: 'E: Capturas', pv: 5, desc: 'Tener capturados al menos 2 Pokémon de la región de Kanto (#001-#151) y 2 de Johto (#152-#251).' },
     { id: 'obj_19', name: 'Veterano del Safari', category: 'E: Capturas', pv: 7, desc: 'Lograr capturar un Pokémon en 3 Fases de Captura consecutivas.' },
     { id: 'obj_20', name: 'Caza Menor', category: 'E: Capturas', pv: 4, desc: 'Tener capturados al menos 2 Pokémon de rareza Común (Gris) o Poco Común (Verde).' },
     { id: 'obj_21', name: 'Escuadrón de Élite', category: 'E: Capturas', pv: 9, desc: 'Terminar la partida con al menos 2 Pokémon de rareza Épica (Morado) o superior capturados.' },
@@ -351,7 +402,7 @@ const ArtRenderer = {
         }
 
         return `
-        <svg width="${size}" height="${size}" viewBox="0 0 48 48" class="inline-block select-none pointer-events-none ${extraClass}">
+        <svg width="${size}" height="${size}" viewBox="0 0 48 48" class="relative z-10 inline-block select-none pointer-events-none ${extraClass}">
             <defs>
                 <radialGradient id="shine_${ballTypeId}" cx="35%" cy="30%" r="60%">
                     <stop offset="0%" stop-color="#ffffff" stop-opacity="0.45"/>
@@ -368,12 +419,24 @@ const ArtRenderer = {
         </svg>`;
     },
 
+    renderBingoBallSVG(ballObj, size = 96) {
+        const b = BALL_MAP[ballObj.typeId] || BALL_TYPES[0];
+        return `
+        <div class="relative inline-flex items-center justify-center select-none" style="width:${size}px; height:${size}px;">
+            <div class="absolute -inset-2 rounded-full animate-bingo-glow z-0 pointer-events-none" style="background: radial-gradient(circle, ${b.badgeColor}66 0%, transparent 68%);"></div>
+            <div class="relative z-10 flex items-center justify-center">
+                ${this.renderBallSVG(ballObj.typeId, size)}
+            </div>
+        </div>`;
+    },
+
     renderGachaMachineSVG(remainingCount = 60, isCranking = false) {
         const crankClass = isCranking ? 'animate-crank' : '';
+        const drumClass = isCranking ? 'animate-bingo-drum' : '';
         return `
         <svg viewBox="0 0 160 200" class="w-full h-full drop-shadow-lg">
             <rect x="24" y="12" width="112" height="92" rx="44" fill="#1e293b" stroke="#cbd5e1" stroke-width="4"/>
-            <g opacity="${remainingCount > 0 ? '0.95' : '0.15'}">
+            <g class="${drumClass}" opacity="${remainingCount > 0 ? '0.95' : '0.15'}">
                 <circle cx="52" cy="78" r="11" fill="#ef4444" stroke="#0f172a" stroke-width="2"/>
                 <circle cx="76" cy="82" r="11" fill="#3b82f6" stroke="#0f172a" stroke-width="2"/>
                 <circle cx="102" cy="79" r="11" fill="#eab308" stroke="#0f172a" stroke-width="2"/>
@@ -790,12 +853,19 @@ const AudioEngine = {
         setTimeout(() => this.playVoice(1318.51, 160, 'square', 0.055, 0, 'sfx'), 75);
     },
     sfxGachaCrank() {
-        [261.63, 329.63, 392.00, 523.25, 659.25, 783.99].forEach((f, i) => {
+        const baseNotes = [330, 392, 440, 493.88, 523.25, 587.33, 659.25, 698.46, 783.99, 880];
+        const totalSteps = 26;
+        for (let i = 0; i < totalSteps; i++) {
+            const f = baseNotes[i % baseNotes.length] * (i > 18 ? 1.25 : 1);
             setTimeout(() => {
-                this.playVoice(f, 75, 'square', 0.04, 0, 'sfx');
-                this.playVoice(f * 0.5, 75, 'triangle', 0.04, 0, 'sfx');
-            }, i * 80);
-        });
+                this.playVoice(f, 55, 'triangle', 0.045, 0, 'sfx');
+                if (i % 2 === 0) this.playDrum('H');
+            }, i * 90);
+        }
+        setTimeout(() => {
+            this.playVoice(783.99, 95, 'square', 0.055, 0, 'sfx');
+            setTimeout(() => this.playVoice(1046.50, 220, 'square', 0.065, 0, 'sfx'), 90);
+        }, 2430);
     },
     sfxTrap() {
         [311.13, 293.66, 277.18, 261.63].forEach((f, i) => {
@@ -1125,9 +1195,9 @@ const ScoringEngine = {
                 return colors.size >= 3;
             }
             case 'obj_18': {
-                const hasKanto = player.captured.some(c => c.pokemon.region === 'Kanto');
-                const hasJohto = player.captured.some(c => c.pokemon.region === 'Johto');
-                return hasKanto && hasJohto;
+                const kantoCount = player.captured.filter(c => c.pokemon.region === 'Kanto').length;
+                const johtoCount = player.captured.filter(c => c.pokemon.region === 'Johto').length;
+                return kantoCount >= 2 && johtoCount >= 2;
             }
             case 'obj_19': return (player.stats.maxConsecutiveSafari || 0) >= 3;
             case 'obj_20': return player.captured.filter(c => c.pokemon.rarityRank <= 2).length >= 2;
@@ -1374,8 +1444,11 @@ const GameController = {
         let uid = 1;
         BALL_TYPES.forEach(bt => {
             for (let i = 0; i < bt.count; i++) {
+                const currentNum = uid++;
                 hopper.push({
-                    uid: 'ball_' + (uid++),
+                    uid: 'ball_' + currentNum,
+                    lottoNum: currentNum,
+                    num: bt.num,
                     typeId: bt.id,
                     name: bt.name,
                     rarity: bt.rarity,
@@ -1510,14 +1583,141 @@ const GameController = {
         this.prepareInitialDrafts(fastSetup);
     },
 
+    evaluateBestDraftObjectives(offeredObjectives) {
+        if (!offeredObjectives || offeredObjectives.length <= 3) {
+            return (offeredObjectives || []).map(o => o.id);
+        }
+
+        // Bonificación de viabilidad táctica además del valor en PV
+        const feasibilityBonus = {
+            'obj_8': 18,  // Almacén Central (12 PV)
+            'obj_2': 16,  // Triunvirato de Amor (11 PV)
+            'obj_14': 15, // Cazador de Leyendas (10 PV)
+            'obj_13': 14, // Hazaña de Entrenador (9 PV)
+            'obj_21': 14, // Escuadrón de Élite (9 PV)
+            'obj_10': 11, // Inversión de Lujo (9 PV)
+            'obj_5': 15,  // Círculo Cromático (8 PV, muy sólido)
+            'obj_17': 14, // Espectro de Rarezas (8 PV)
+            'obj_11': 8,  // Escudo de Plomo (8 PV)
+            'obj_7': 16,  // Centro Pokémon Satélite (7 PV, muy seguro)
+            'obj_22': 15, // Entrenador Equilibrado (7 PV)
+            'obj_3': 13,  // Fidelidad al Clásico (7 PV)
+            'obj_19': 11, // Veterano del Safari (7 PV)
+            'obj_12': 7,  // Coleccionista Imparcial (7 PV)
+            'obj_15': -12,// Reclutamiento Rocket (7 PV pero exige capturar 2 con Rocket Ball que restan -4 PV cada una)
+            'obj_9': 14,  // Zona Desmilitarizada (6 PV gratis por no tener Rocket Balls)
+            'obj_6': 12,  // Purista de la Luna (6 PV)
+            'obj_16': 11, // Sincronía Perfecta (6 PV)
+            'obj_1': 12,  // Doble Pareja (5 PV)
+            'obj_18': 10, // Pokédex Biregional (5 PV)
+            'obj_4': 11,  // Muestrario de Ruta (4 PV)
+            'obj_20': 10  // Caza Menor (4 PV)
+        };
+
+        const scoreSingleObj = (o) => (o.pv * 12) + (feasibilityBonus[o.id] || 0);
+
+        // Evaluamos las 10 combinaciones posibles de 3 objetivos entre los 5 ofrecidos
+        let bestCombo = offeredObjectives.slice(0, 3).map(o => o.id);
+        let bestComboScore = -999999;
+
+        const n = offeredObjectives.length;
+        for (let i = 0; i < n - 2; i++) {
+            for (let j = i + 1; j < n - 1; j++) {
+                for (let k = j + 1; k < n; k++) {
+                    const trio = [offeredObjectives[i], offeredObjectives[j], offeredObjectives[k]];
+                    const ids = new Set(trio.map(x => x.id));
+                    let totalScore = trio.reduce((acc, x) => acc + scoreSingleObj(x), 0);
+
+                    // Penalizar objetivos mutuamente excluyentes
+                    if (ids.has('obj_3') && ids.has('obj_12')) totalScore -= 500; // 4 Poké Balls vs 0 Poké Balls
+                    if (ids.has('obj_9') && ids.has('obj_15')) totalScore -= 500; // 0 Rocket Balls vs 2 capturas con Rocket Ball
+
+                    // Premiar sinergias directas
+                    if (ids.has('obj_1') && ids.has('obj_2')) totalScore += 24;   // Parejas + Parejas de Amor Ball
+                    if (ids.has('obj_4') && ids.has('obj_5')) totalScore += 26;   // 5 tipos + 8 tipos
+                    if (ids.has('obj_7') && ids.has('obj_8')) totalScore += 28;   // 10 balls + 14 balls
+                    if (ids.has('obj_14') && ids.has('obj_21')) totalScore += 22; // Legendario/Mítico + 2 Épicos o superior
+
+                    if (totalScore > bestComboScore) {
+                        bestComboScore = totalScore;
+                        bestCombo = trio.map(x => x.id);
+                    }
+                }
+            }
+        }
+        return bestCombo;
+    },
+
+    evaluateBestDraftEffects(offeredEffects) {
+        if (!offeredEffects || offeredEffects.length <= 3) {
+            return (offeredEffects || []).map((_, idx) => idx);
+        }
+
+        // Puntuación estratégica de cada Carta de Objeto para el inicio de partida
+        const effectPowerRank = {
+            'ficha_trucada': 100,        // Giro de Gachapon gratis inmediato (ahorra 3 P¥)
+            'cupon_rebajas': 95,         // Giro de Gachapon por 1 P¥ (ahorra 2 P¥)
+            'superrepelente': 92,        // Garantiza Pokémon Raro/Épico/Legendario/Mítico en Safari
+            'baya_dorada': 90,           // Convierte 1 Cruz en Cara en el Safari
+            'captura_critica': 88,       // Reduce requisito de 2 o 3 Caras a 1 sola Cara
+            'escudo_silph': 86,          // Cancela automáticamente robo con Rocket Ball
+            'pokedex_actualizada': 84,   // Reordena las 4 primeras cartas de Efectos/Trampas y manda 1 al fondo
+            'prestamo_celedon': 81,      // +5 P¥ inmediatos para acelerar el motor económico
+            'patrocinio_silph': 78,      // +1 P¥ por cada tipo distinto de Pokéball
+            'inversor_pokemon': 75,      // Roba 2 cartas adicionales
+            'repelente': 73,             // Mejora Pokémon Común en el Safari
+            'mercado_negro': 70,         // Intercambia Pokéball con un rival por 1 P¥
+            'ticket_devolucion': 66,     // Vende Pokéballs por su valor en P¥
+            'capsula_temporal': 62,      // Recupera Objeto del descarte o sube Trampa al mazo
+            'subasta_rota': 58,          // Recupera el último Objeto descartado
+            'intercambio_comercial': 54  // Rota toda la mano
+        };
+
+        let bestIndices = [0, 1, 2];
+        let bestComboScore = -999999;
+        const n = offeredEffects.length;
+
+        for (let i = 0; i < n - 2; i++) {
+            for (let j = i + 1; j < n - 1; j++) {
+                for (let k = j + 1; k < n; k++) {
+                    const idxs = [i, j, k];
+                    const seenIds = {};
+                    let score = 0;
+                    idxs.forEach(idx => {
+                        const card = offeredEffects[idx];
+                        const base = effectPowerRank[card.id] || 60;
+                        seenIds[card.id] = (seenIds[card.id] || 0) + 1;
+                        // Si hay cartas repetidas de utilidad media/baja, penalizar duplicado para priorizar versatilidad
+                        if (seenIds[card.id] > 1 && base < 88) {
+                            score += (base - 18);
+                        } else {
+                            score += base;
+                        }
+                    });
+                    if (score > bestComboScore) {
+                        bestComboScore = score;
+                        bestIndices = idxs;
+                    }
+                }
+            }
+        }
+        return bestIndices;
+    },
+
     prepareInitialDrafts(fastSetup) {
         const humanIndices = [];
         this.state.players.forEach((p, idx) => {
             if (p.isAI || fastSetup) {
-                const chosenObjs = [...p.draftOfferedObjs].sort((a, b) => b.pv - a.pv).slice(0, 3);
-                p.objectives = chosenObjs;
-                const chosenEffs = p.draftOfferedEffs.slice(0, 3);
-                const returnedEffs = p.draftOfferedEffs.slice(3);
+                const bestObjIds = this.evaluateBestDraftObjectives(p.draftOfferedObjs);
+                p.objectives = p.draftOfferedObjs.filter(o => bestObjIds.includes(o.id));
+
+                const bestEffIdxs = this.evaluateBestDraftEffects(p.draftOfferedEffs);
+                const chosenEffs = [];
+                const returnedEffs = [];
+                p.draftOfferedEffs.forEach((c, cIdx) => {
+                    if (bestEffIdxs.includes(cIdx)) chosenEffs.push(c);
+                    else returnedEffs.push(c);
+                });
                 p.hand = chosenEffs;
                 this.state.effectDeck.push(...returnedEffs);
                 delete p.draftOfferedObjs;
@@ -1561,17 +1761,22 @@ const GameController = {
         const objGrid = document.getElementById('draftObjectivesGrid');
         const effGrid = document.getElementById('draftEffectsGrid');
 
+        const recommendedObjIds = this.evaluateBestDraftObjectives(this.draftState.offeredObjectives);
+        const recommendedEffIdxs = this.evaluateBestDraftEffects(this.draftState.offeredEffects);
+
         objGrid.innerHTML = this.draftState.offeredObjectives.map(o => {
             const sel = this.draftState.selectedObjIds.includes(o.id);
+            const isRec = recommendedObjIds.includes(o.id);
             return `
             <div onclick="GameController.toggleDraftObj('${o.id}')"
-                 class="cursor-pointer p-3 rounded-xl border-2 transition ${sel ? 'border-yellow-400 bg-yellow-500/20 shadow-lg' : 'border-slate-700 bg-slate-950 hover:border-slate-500'} flex flex-col justify-between">
+                 class="cursor-pointer p-3 rounded-xl border-2 transition ${sel ? 'border-yellow-400 bg-yellow-500/20 shadow-lg' : 'border-slate-700 bg-slate-950 hover:border-slate-500'} flex flex-col justify-between relative">
                 <div>
                     <div class="flex items-center justify-between gap-1 mb-1">
                         <span class="text-[10px] font-bold text-amber-400 uppercase">${o.category}</span>
                         <span class="font-pixel text-xs text-yellow-400 bg-slate-900 px-2 py-0.5 rounded border border-yellow-500/40">+${o.pv} PV</span>
                     </div>
-                    <div class="font-bold text-sm text-white my-1.5">${o.name}</div>
+                    ${isRec ? `<div class="mb-1"><span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-bold px-1.5 py-0.5 rounded">⭐ TOP RECOMENDADO</span></div>` : ''}
+                    <div class="font-bold text-sm text-white my-1">${o.name}</div>
                     <div class="card-rich-desc mt-1">${formatCardText(o.desc)}</div>
                 </div>
                 <div class="mt-2.5 text-right text-[11px] font-bold ${sel ? 'text-yellow-300' : 'text-slate-400'}">
@@ -1582,15 +1787,17 @@ const GameController = {
 
         effGrid.innerHTML = this.draftState.offeredEffects.map((c, idx) => {
             const sel = this.draftState.selectedEffIndices.includes(idx);
+            const isRec = recommendedEffIdxs.includes(idx);
             return `
             <div onclick="GameController.toggleDraftEff(${idx})"
-                 class="cursor-pointer p-3 rounded-xl border-2 transition ${sel ? 'border-cyan-400 bg-cyan-500/20 shadow-lg' : 'border-slate-700 bg-slate-950 hover:border-slate-500'} flex flex-col justify-between">
+                 class="cursor-pointer p-3 rounded-xl border-2 transition ${sel ? 'border-cyan-400 bg-cyan-500/20 shadow-lg' : 'border-slate-700 bg-slate-950 hover:border-slate-500'} flex flex-col justify-between relative">
                 <div>
                     <div class="flex items-center justify-between text-[10px] font-bold text-cyan-400 mb-1">
                         <span><i class="fas ${c.icon} mr-1"></i>${c.subtype.toUpperCase()}</span>
                         <span class="bg-cyan-950 text-cyan-300 px-1.5 py-0.5 rounded border border-cyan-700 text-[9px]">${c.phaseTag || 'ACCIÓN'}</span>
                     </div>
-                    <div class="font-bold text-sm text-white my-1.5">${c.name}</div>
+                    ${isRec ? `<div class="mb-1"><span class="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-bold px-1.5 py-0.5 rounded">⭐ TOP RECOMENDADA</span></div>` : ''}
+                    <div class="font-bold text-sm text-white my-1">${c.name}</div>
                     <div class="card-rich-desc mt-1">${formatCardText(c.desc)}</div>
                 </div>
                 <div class="mt-2.5 text-right text-[11px] font-bold ${sel ? 'text-cyan-300' : 'text-slate-400'}">
@@ -1623,9 +1830,9 @@ const GameController = {
     },
 
     autoCompleteDraft() {
-        AudioEngine.sfxClick();
-        this.draftState.selectedObjIds = this.draftState.offeredObjectives.slice(0, 3).map(o => o.id);
-        this.draftState.selectedEffIndices = [0, 1, 2];
+        AudioEngine.sfxSwap();
+        this.draftState.selectedObjIds = this.evaluateBestDraftObjectives(this.draftState.offeredObjectives);
+        this.draftState.selectedEffIndices = this.evaluateBestDraftEffects(this.draftState.offeredEffects);
         this.renderDraftModalChoices();
     },
 
@@ -1798,6 +2005,9 @@ const GameController = {
         this.syncAndRender();
     },
 
+    isGachaCranking: false,
+    crankTimeoutId: null,
+
     actionPullGacha() {
         const player = this.state.players[this.state.turnPlayerIdx];
         if (this.state.phase !== 2) return;
@@ -1816,9 +2026,6 @@ const GameController = {
         player.discountActive = false;
         AudioEngine.sfxGachaCrank();
 
-        const machineEl = document.getElementById('gachaMachineInteractive');
-        if (machineEl) machineEl.innerHTML = ArtRenderer.renderGachaMachineSVG(this.state.hopper.length, true);
-
         this.extractFromHopper(player, false);
         this.state.phase = 3;
         this.syncAndRender();
@@ -1827,22 +2034,37 @@ const GameController = {
     extractFromHopper(player, isFreeBonus = false) {
         if (this.state.hopper.length === 0) return null;
         const ball = this.state.hopper.shift();
-        this.state.lastExtractedBall = { ball, playerName: player.name };
+        this.state.lastExtractedBall = { ball, playerName: player.name, timestamp: Date.now() };
         player.tray.push(ball);
 
+        // Activar animación del bombo de bingo en la máquina de Gachapon (+2s más larga)
+        this.isGachaCranking = true;
+        if (this.crankTimeoutId) clearTimeout(this.crankTimeoutId);
+        this.crankTimeoutId = setTimeout(() => {
+            this.isGachaCranking = false;
+            const machineEl = document.getElementById('gachaMachineInteractive');
+            if (machineEl && this.state) {
+                machineEl.innerHTML = ArtRenderer.renderGachaMachineSVG(this.state.hopper.length, false);
+            }
+        }, 3250);
+
         this.addLog(
-            `🎰 ${player.name} gira el Gachapon${isFreeBonus ? ' (Giro Gratis)' : ''} y extrae: ¡${ball.name.toUpperCase()}! (${ball.rarity})`,
+            `🎱 ${player.name} gira el bombo Gachapon${isFreeBonus ? ' (Giro Gratis)' : ''} y extrae: ¡${ball.name.toUpperCase()}! (${ball.rarity})`,
             'text-amber-300 font-bold'
         );
 
+        let specialBanner = '';
         if (ball.typeId === 'masterball') {
             player.yen += 7;
             AudioEngine.sfxCaptureSuccess();
+            specialBanner = '👑 ¡JACKPOT MASTER BALL! Recibes +7 P¥ al instante.';
             this.addLog(`👑 ¡JACKPOT MASTER BALL! ${player.name} recibe +7 P¥ inmediatamente.`, 'text-yellow-400 font-bold');
         } else if (ball.typeId === 'lujoball') {
             this.drawCardsImmuneToTraps(player, 2);
+            specialBanner = '✨ ¡BONUS LUJO BALL! Robas +2 Cartas de Objeto (inmune a trampas).';
             this.addLog(`✨ Efecto Lujo Ball: ${player.name} roba 2 Cartas de Objeto (inmune a trampas).`, 'text-purple-300');
         } else if (ball.typeId === 'rocketball') {
+            specialBanner = '🚀 ¡ROCKET BALL! Puedes usarla en Fase 3 para robar a un rival.';
             this.addLog(`🚀 ${player.name} ha obtenido una Rocket Ball. Puede usarla para robar en Fase 3 o guardarla.`, 'text-red-400');
         }
 
@@ -1850,6 +2072,8 @@ const GameController = {
             this.state.isFinalRound = true;
             this.addLog(`🔔 ¡SE HA EXTRAÍDO LA ÚLTIMA POKÉBALL DE LA TOLVA! Esta ronda es la Ronda Final.`, 'text-red-400 font-bold');
         }
+
+        UI.playBingoExtractionAnimation(ball, player, isFreeBonus, specialBanner);
 
         return ball;
     },
@@ -2945,12 +3169,197 @@ const UI = {
     catalogCurrentTab: 'balls',
     dexFilterRarity: 'ALL',
 
+    bingoTimerId: null,
+    bingoDrumIntervalId: null,
+    topModalZ: 100,
+
+    playBingoExtractionAnimation(ball, player, isFreeBonus = false, specialBanner = '') {
+        const bInfo = BALL_MAP[ball.typeId] || BALL_TYPES[0];
+
+        // Si es un Bot IA, mostramos un banner flotante arriba para no interrumpir al jugador humano
+        if (player && player.isAI) {
+            let toast = document.getElementById('aiBingoToast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'aiBingoToast';
+                toast.className = 'fixed top-16 left-1/2 -translate-x-1/2 pointer-events-none transition-all duration-300';
+                toast.style.zIndex = '9100';
+                document.body.appendChild(toast);
+            }
+            toast.innerHTML = `
+                <div class="pixel-box-gold bg-slate-950/95 px-4 py-2.5 rounded-2xl flex items-center gap-3 shadow-2xl border-2" style="border-color:${bInfo.badgeColor}">
+                    <div class="animate-bingo-slot">
+                        ${ArtRenderer.renderBingoBallSVG(ball, 46)}
+                    </div>
+                    <div class="text-left">
+                        <div class="text-[10px] font-pixel text-yellow-400">🎱 BOMBO GACHA • ${player.name.toUpperCase()}</div>
+                        <div class="text-xs font-bold text-white">¡<span style="color:${bInfo.badgeColor}">${ball.name}</span> (${ball.rarity})!</div>
+                    </div>
+                </div>
+            `;
+            toast.style.opacity = '1';
+            setTimeout(() => {
+                if (toast) toast.style.opacity = '0';
+            }, 1800);
+            return;
+        }
+
+        // Para jugadores humanos: Mostrar el espectáculo completo del Bombo y caída de la Pokéball
+        let overlay = document.getElementById('bingoExtractionOverlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'bingoExtractionOverlay';
+            overlay.className = 'fixed inset-0 bg-black/80 hidden items-center justify-center p-4 backdrop-blur-sm';
+            overlay.style.zIndex = '9200';
+            overlay.onclick = (e) => {
+                if (e.target === overlay) this.closeBingoOverlay();
+            };
+            document.body.appendChild(overlay);
+        }
+
+        if (this.bingoTimerId) clearTimeout(this.bingoTimerId);
+        if (this.bingoDrumIntervalId) clearInterval(this.bingoDrumIntervalId);
+
+        overlay.innerHTML = `
+            <div class="pixel-box-gold max-w-md w-full p-5 bg-slate-900 text-center relative overflow-hidden" style="border-color:${bInfo.badgeColor}">
+                <div class="flex items-center justify-between border-b border-slate-700 pb-2.5 mb-3">
+                    <span class="font-pixel text-[11px] text-yellow-400 flex items-center gap-1.5">
+                        <i class="fas fa-dharmachakra animate-spin text-red-400"></i>
+                        SORTEO TOLVA GACHAPON ${isFreeBonus ? '(GIRO GRATIS)' : ''}
+                    </span>
+                    <span class="bg-slate-950 text-cyan-300 border border-cyan-500/40 font-pixel text-[10px] px-2 py-0.5 rounded">
+                        Quedan: ${GameController.state ? GameController.state.hopper.length : 0}/60
+                    </span>
+                </div>
+
+                <!-- Fase 1: Bombo Girando (2.43 segundos) -->
+                <div id="bingoPhaseSpinning" class="py-4 flex flex-col items-center justify-center space-y-3">
+                    <div class="w-36 h-40 mx-auto">
+                        ${ArtRenderer.renderGachaMachineSVG(60, true)}
+                    </div>
+                    <div class="font-pixel text-xs text-amber-300 animate-pulse">
+                        MEZCLANDO LAS ESFERAS EN LA TOLVA...
+                    </div>
+                    <div id="bingoRollingNumberTicker" class="font-pixel text-xs text-cyan-300 bg-slate-950 border-2 border-slate-700 px-4 py-2 rounded-full shadow-inner flex items-center justify-center gap-2 min-w-[210px]">
+                        <span>GIRANDO BOMBO...</span>
+                    </div>
+                </div>
+
+                <!-- Fase 2: Pokéball Extraída (con el destello por detrás sin tapar la Pokéball y sin número) -->
+                <div id="bingoPhaseRevealed" class="hidden py-2 flex-col items-center justify-center space-y-3">
+                    <div class="text-[11px] font-bold text-slate-300 uppercase tracking-wider">
+                        ¡ESFERA EXTRAÍDA PARA <span class="text-yellow-300">${player ? player.name.toUpperCase() : 'ENTRENADOR'}</span>!
+                    </div>
+
+                    <div class="relative my-2 flex items-center justify-center">
+                        <div class="animate-bingo-ball-drop relative flex items-center justify-center p-5">
+                            <!-- Destello situado estrictamente detrás (z-0) con gradiente radial suave -->
+                            <div class="absolute -inset-2 rounded-full blur-md opacity-60 animate-bingo-glow z-0 pointer-events-none"
+                                 style="background: radial-gradient(circle, ${bInfo.badgeColor} 0%, ${bInfo.badgeColor}44 45%, transparent 72%);"></div>
+                            <!-- Imagen de la Pokéball situada delante (z-10) para que nunca quede tapada -->
+                            <div class="relative z-10 flex items-center justify-center">
+                                ${ArtRenderer.renderBallSVG(ball.typeId, 112)}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="inline-block px-3 py-0.5 rounded-full text-[11px] font-bold mb-1 border"
+                             style="background:${bInfo.badgeColor}25; color:${bInfo.badgeColor}; border-color:${bInfo.badgeColor}">
+                            RAREZA ${ball.rarity.toUpperCase()} (COLOR ${ball.colorName.toUpperCase()})
+                        </div>
+                        <h3 class="font-pixel text-base sm:text-lg text-white mt-0.5" style="text-shadow:0 0 10px ${bInfo.badgeColor}88;">
+                            ¡${ball.name.toUpperCase()}!
+                        </h3>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2 w-full max-w-xs text-xs bg-slate-950 border border-slate-800 p-2.5 rounded-xl">
+                        <div>
+                            <div class="text-[10px] text-slate-400">VALOR PUNTOS</div>
+                            <div class="font-pixel text-xs text-purple-300 mt-0.5">+${ball.pv} PV Base</div>
+                        </div>
+                        <div>
+                            <div class="text-[10px] text-slate-400">VALOR DE VENTA</div>
+                            <div class="font-pixel text-xs text-yellow-300 mt-0.5">${ball.sell} P¥</div>
+                        </div>
+                    </div>
+
+                    ${specialBanner ? `
+                        <div class="w-full bg-yellow-500/20 border-2 border-yellow-400 text-yellow-200 text-xs font-bold p-2.5 rounded-xl animate-bounce">
+                            ${specialBanner}
+                        </div>
+                    ` : ''}
+
+                    <div class="card-rich-desc w-full text-left">
+                        ${formatCardText(bInfo.desc)}
+                    </div>
+
+                    <button onclick="UI.closeBingoOverlay()"
+                            class="pixel-btn bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-6 py-2.5 w-full mt-2">
+                        ¡GUARDAR EN MI BANDEJA!
+                    </button>
+                </div>
+            </div>
+        `;
+
+        overlay.classList.remove('hidden');
+        overlay.classList.add('flex');
+
+        // Mostrar previsualización dinámica de esferas mezclándose durante los 2.43 segundos
+        const tickerEl = document.getElementById('bingoRollingNumberTicker');
+        let spinStep = 0;
+        this.bingoDrumIntervalId = setInterval(() => {
+            if (tickerEl) {
+                const sampleBall = BALL_TYPES[spinStep % BALL_TYPES.length];
+                tickerEl.innerHTML = `
+                    ${ArtRenderer.renderBallSVG(sampleBall.id, 22)}
+                    <span style="color:${sampleBall.badgeColor}">${sampleBall.name.toUpperCase()}</span>
+                `;
+                spinStep++;
+            }
+        }, 110);
+
+        // 2430 ms (2 segundos más larga que los 430 ms anteriores)
+        this.bingoTimerId = setTimeout(() => {
+            if (this.bingoDrumIntervalId) clearInterval(this.bingoDrumIntervalId);
+            const spinEl = document.getElementById('bingoPhaseSpinning');
+            const revEl = document.getElementById('bingoPhaseRevealed');
+            if (spinEl && revEl) {
+                spinEl.classList.add('hidden');
+                revEl.classList.remove('hidden');
+                revEl.classList.add('flex');
+            }
+        }, 2430);
+    },
+
+    closeBingoOverlay() {
+        if (this.bingoTimerId) clearTimeout(this.bingoTimerId);
+        if (this.bingoDrumIntervalId) clearInterval(this.bingoDrumIntervalId);
+        const overlay = document.getElementById('bingoExtractionOverlay');
+        if (overlay) {
+            overlay.classList.add('hidden');
+            overlay.classList.remove('flex');
+        }
+        AudioEngine.sfxClick();
+    },
+
     openModal(id) {
         const el = document.getElementById(id);
         if (!el) return;
         if (id === 'modalCatalog') this.renderCatalogModal();
         if (id === 'modalSettings') SettingsManager.renderSettingsModalControls();
         if (id === 'modalBugReport') BugReporter.refreshModal();
+
+        // Garantizar que la ventana de alerta/inspección (#modalAlert) o cualquier modal recién abierto quede siempre delante de todo
+        this.topModalZ = (this.topModalZ || 100) + 2;
+        if (id === 'modalAlert') {
+            el.style.zIndex = '9500';
+        } else if (id === 'modalInteraction') {
+            el.style.zIndex = '9000';
+        } else {
+            el.style.zIndex = String(this.topModalZ);
+        }
+
         el.classList.remove('hidden');
         el.classList.add('flex');
     },
@@ -3146,16 +3555,22 @@ const UI = {
         document.getElementById('hopperBadgeCount').textContent = `${st.hopper.length}/60`;
 
         const machineEl = document.getElementById('gachaMachineInteractive');
-        if (machineEl) machineEl.innerHTML = ArtRenderer.renderGachaMachineSVG(st.hopper.length, false);
+        if (machineEl) machineEl.innerHTML = ArtRenderer.renderGachaMachineSVG(st.hopper.length, GameController.isGachaCranking);
 
         const lastSlot = document.getElementById('lastExtractedSlot');
         const lastName = document.getElementById('lastExtractedName');
         const lastDesc = document.getElementById('lastExtractedDesc');
         if (st.lastExtractedBall) {
             const lb = st.lastExtractedBall.ball;
-            lastSlot.innerHTML = `<div onclick="UI.inspectBall('${lb.typeId}')" class="cursor-pointer animate-capsule">${ArtRenderer.renderBallSVG(lb.typeId, 52)}</div>`;
-            lastName.textContent = lb.name;
-            lastDesc.textContent = `Extraída por ${st.lastExtractedBall.playerName} (${lb.rarity})`;
+            const bInfo = BALL_MAP[lb.typeId] || BALL_TYPES[0];
+            const isRecent = (Date.now() - (st.lastExtractedBall.timestamp || 0)) < 2500;
+            const animClass = isRecent ? 'animate-bingo-slot' : '';
+            lastSlot.innerHTML = `
+                <div onclick="UI.inspectBall('${lb.typeId}')" class="cursor-pointer ${animClass}" title="Haz clic para inspeccionar esta bola">
+                    ${ArtRenderer.renderBingoBallSVG(lb, 54)}
+                </div>`;
+            lastName.innerHTML = `<span style="color:${bInfo.badgeColor}">${lb.name}</span>`;
+            lastDesc.innerHTML = `Extraída por <span class="text-yellow-300 font-bold">${st.lastExtractedBall.playerName}</span> (${lb.rarity})`;
         }
 
         const rarityCounts = { 'Común': 0, 'Poco Común': 0, 'Rara': 0, 'Épica': 0, 'Legendaria': 0 };
