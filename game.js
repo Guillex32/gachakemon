@@ -5729,3 +5729,990 @@ window.GameController = GameController;
 window.addEventListener('DOMContentLoaded', () => {
     Lobby.init();
 });
+// ============================================================================
+// 16. TOP PUNTUACIONES PERMANENTE Y RANKING CLASIFICATORIO (LeaderboardManager)
+// ============================================================================
+const LeaderboardManager = {
+    storageKeyScores: 'gachakemon_top_scores_permanent_v1',
+    storageKeyRanked: 'gachakemon_ranked_profiles_v1',
+    currentTab: 'pv', // 'pv' | 'ranked'
+    maxEntries: 25,
+
+    defaultSeedScores: [
+        { id: 'seed_1', name: 'Red (Campeón)', pv: 54, capturedCount: 4, bestPokemonName: 'Mewtwo', bestPokemonDex: 150, bestPokemonRarity: 'Mítica', yen: 6, mode: 'ranked', rankPos: 1, date: 'Liga Kanto', isAI: false },
+        { id: 'seed_2', name: 'Cynthia', pv: 49, capturedCount: 4, bestPokemonName: 'Lugia', bestPokemonDex: 249, bestPokemonRarity: 'Mítica', yen: 4, mode: 'ranked', rankPos: 1, date: 'Liga Johto', isAI: false },
+        { id: 'seed_3', name: 'Lance', pv: 44, capturedCount: 3, bestPokemonName: 'Dragonite', bestPokemonDex: 149, bestPokemonRarity: 'Épica', yen: 5, mode: 'online', rankPos: 1, date: 'Meseta Añil', isAI: false }
+    ],
+
+    init() {
+        this.ensureDOMElements();
+        const scores = this.getScores();
+        if (scores.length === 0) {
+            this.saveScores(this.defaultSeedScores);
+        }
+        this.renderAllLeaderboards();
+        this.updateMyRankedBadge();
+    },
+
+    ensureDOMElements() {
+        // 1. Asegurar pestaña Ranked 4J en el Lobby si no se editó index.html manualmente
+        const tabBtnOnline = document.getElementById('tabBtnOnline');
+        if (tabBtnOnline && !document.getElementById('tabBtnRanked')) {
+            const parentGrid = tabBtnOnline.parentElement;
+            if (parentGrid) {
+                parentGrid.className = 'grid grid-cols-2 sm:grid-cols-4 gap-2';
+                const btnRanked = document.createElement('button');
+                btnRanked.id = 'tabBtnRanked';
+                btnRanked.setAttribute('onclick', "Lobby.selectTab('ranked')");
+                btnRanked.className = 'py-2.5 px-2 rounded-lg font-pixel text-[10px] border-2 border-slate-700 bg-slate-800 text-slate-400 flex flex-col items-center gap-1 relative';
+                btnRanked.innerHTML = `
+                    <span class="absolute -top-1.5 -right-1 bg-red-600 text-white text-[8px] px-1.5 py-0.2 rounded-full font-sans font-bold">4J</span>
+                    <i class="fas fa-ranking-star text-base text-amber-400"></i>
+                    <span>RANKED 4J</span>
+                `;
+                parentGrid.appendChild(btnRanked);
+            }
+        }
+
+        // 2. Asegurar panel de Cola Clasificatoria (#panelModeRanked)
+        const panelOnline = document.getElementById('panelModeOnline');
+        if (panelOnline && !document.getElementById('panelModeRanked')) {
+            const rankedDiv = document.createElement('div');
+            rankedDiv.id = 'panelModeRanked';
+            rankedDiv.className = 'hidden bg-slate-900/95 border-2 border-amber-500/70 rounded-xl p-4 flex flex-col gap-3 shadow-lg';
+            rankedDiv.innerHTML = `
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-2.5">
+                    <div>
+                        <div class="font-pixel text-xs text-amber-400 flex items-center gap-1.5">
+                            <i class="fas fa-trophy"></i> COLA CLASIFICATORIA OFICIAL (SOLO 4 JUGADORES)
+                        </div>
+                        <p class="text-[11px] text-slate-300 mt-0.5">
+                            Emparejamiento automático sin bots. La partida comienza al reunirse <strong>4/4 entrenadores humanos</strong>.
+                        </p>
+                    </div>
+                    <div id="myRankedProfileBadge" class="bg-slate-950 border border-amber-500/50 px-3 py-1.5 rounded-lg text-right">
+                        <div class="text-[9px] text-slate-400 uppercase">Tu Rango Clasificatorio</div>
+                        <div class="font-pixel text-xs text-yellow-300" id="myRankedRpText">1000 RP • Bronce</div>
+                    </div>
+                </div>
+                <div id="rankedQueueIdleBox" class="bg-slate-950/90 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div class="text-xs text-slate-300 space-y-1">
+                        <div>• <strong>Formato estricto:</strong> 4 Jugadores Humanos (sin IAs).</div>
+                        <div>• <strong>Puntuación RP:</strong> 1.º <span class="text-emerald-400 font-bold">+30 RP</span> | 2.º <span class="text-cyan-400 font-bold">+12 RP</span> | 3.º <span class="text-amber-400 font-bold">-6 RP</span> | 4.º <span class="text-red-400 font-bold">-15 RP</span>.</div>
+                        <div>• <strong>Registro automático:</strong> Tu puntuación se guarda en el <strong>TOP Puntuaciones Permanente</strong>.</div>
+                    </div>
+                    <button id="btnJoinRankedQueue" onclick="RankedQueueManager.joinQueue()" class="pixel-btn bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-5 py-3.5 shrink-0">
+                        ⚔️ ENTRAR EN COLA (4J)
+                    </button>
+                </div>
+                <div id="rankedQueueActiveBox" class="hidden bg-slate-950 border-2 border-amber-400 rounded-xl p-4 space-y-3">
+                    <div class="flex flex-wrap items-center justify-between gap-2">
+                        <div class="flex items-center gap-2">
+                            <i class="fas fa-circle-notch animate-spin text-amber-400 text-base"></i>
+                            <span id="rankedQueueStatusTitle" class="font-pixel text-xs text-yellow-300">BUSCANDO ENTRENADORES EN COLA...</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span id="rankedQueueChannelBadge" class="text-[10px] bg-slate-900 border border-slate-700 text-cyan-300 px-2 py-0.5 rounded font-mono">Canal #1</span>
+                            <span id="rankedQueueTimer" class="font-pixel text-xs text-amber-300 bg-amber-950/60 border border-amber-500/40 px-2.5 py-1 rounded">00:00</span>
+                            <span id="rankedQueueCountBadge" class="font-pixel text-xs bg-emerald-500 text-slate-950 px-2.5 py-1 rounded font-bold">1/4</span>
+                        </div>
+                    </div>
+                    <div id="rankedQueueSlotsGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5"></div>
+                    <div class="flex items-center justify-between pt-2 border-t border-slate-800">
+                        <span class="text-[11px] text-slate-400" id="rankedQueueSubStatus">Esperando a que se completen las 4 plazas para lanzar la partida...</span>
+                        <button id="btnLeaveRankedQueue" onclick="RankedQueueManager.leaveQueue()" class="bg-red-950/80 hover:bg-red-900 text-red-200 border border-red-500/50 text-xs font-bold px-3 py-1.5 rounded-lg transition">
+                            <i class="fas fa-xmark mr-1"></i> Salir de la Cola
+                        </button>
+                    </div>
+                </div>
+            `;
+            panelOnline.parentElement.appendChild(rankedDiv);
+        }
+
+        // 3. Asegurar el Panel Permanente de TOP Puntuaciones en #screenLobby
+        const screenLobby = document.getElementById('screenLobby');
+        if (screenLobby && !document.getElementById('permanentLobbyLeaderboard')) {
+            const topDiv = document.createElement('div');
+            topDiv.id = 'permanentLobbyLeaderboard';
+            topDiv.className = 'pixel-box max-w-4xl w-full p-4 sm:p-6 mt-5 bg-slate-900/95';
+            topDiv.innerHTML = `
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-700 pb-3 mb-3">
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-9 h-9 rounded-xl bg-yellow-500/20 border-2 border-yellow-400 flex items-center justify-center text-yellow-300 shadow">
+                            <i class="fas fa-trophy text-lg"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-pixel text-xs sm:text-sm text-yellow-400 flex items-center gap-2">
+                                TOP PUNTUACIONES PERMANENTE
+                                <span class="bg-amber-500/20 text-amber-300 border border-amber-400/40 text-[9px] px-2 py-0.5 rounded-full">SALÓN DE LA FAMA</span>
+                            </h3>
+                            <p class="text-[11px] text-slate-400">Récords históricos de Puntos de Victoria (PV) y Ranking Clasificatorio 4J</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <button onclick="LeaderboardManager.setTab('pv')" id="btnTopTabPv" class="px-2.5 py-1 rounded font-pixel text-[9px] bg-yellow-500 text-slate-950 font-bold">
+                            ⭐ RÉCORDS PV
+                        </button>
+                        <button onclick="LeaderboardManager.setTab('ranked')" id="btnTopTabRanked" class="px-2.5 py-1 rounded font-pixel text-[9px] bg-slate-800 text-slate-300 border border-slate-700">
+                            ⚔️ RANKING 4J (RP)
+                        </button>
+                        <button onclick="UI.openModal('modalLeaderboard')" class="px-2.5 py-1 rounded text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/40">
+                            <i class="fas fa-expand mr-1"></i> Ampliar
+                        </button>
+                    </div>
+                </div>
+                <div id="lobbyTopScoresContainer" class="overflow-x-auto"></div>
+            `;
+            screenLobby.appendChild(topDiv);
+        }
+
+        // 4. Asegurar botón en #headerActionsPanel y el modal #modalLeaderboard
+        const headerPanel = document.getElementById('headerActionsPanel');
+        if (headerPanel && !document.getElementById('btnHeaderLeaderboard')) {
+            const btn = document.createElement('button');
+            btn.id = 'btnHeaderLeaderboard';
+            btn.setAttribute('onclick', "UI.openModal('modalLeaderboard')");
+            btn.className = 'bg-yellow-500 hover:bg-yellow-400 text-slate-950 text-xs font-bold px-2.5 py-1.5 rounded-lg border-2 border-yellow-300 flex items-center gap-2 w-full justify-start transition shadow';
+            btn.innerHTML = `<i class="fas fa-trophy w-4"></i> <span>TOP Puntuaciones</span>`;
+            headerPanel.prepend(btn);
+        }
+
+        if (!document.getElementById('modalLeaderboard')) {
+            const modal = document.createElement('div');
+            modal.id = 'modalLeaderboard';
+            modal.className = 'fixed inset-0 bg-black/85 z-50 hidden items-center justify-center p-3 overflow-y-auto backdrop-blur-sm';
+            modal.innerHTML = `
+                <div class="pixel-box-gold max-w-4xl w-full p-5 sm:p-6 bg-slate-900 my-auto max-h-[90vh] flex flex-col">
+                    <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-700 pb-3 mb-4">
+                        <div class="flex items-center gap-2.5">
+                            <i class="fas fa-trophy text-yellow-400 text-xl"></i>
+                            <div>
+                                <h3 class="font-pixel text-sm sm:text-base text-yellow-400">SALÓN DE LA FAMA — TOP PUNTUACIONES PERMANENTE</h3>
+                                <p class="text-xs text-slate-400">Mejores registros históricos y clasificación competitiva de 4 jugadores</p>
+                            </div>
+                        </div>
+                        <button onclick="UI.closeModal('modalLeaderboard')" class="text-slate-400 hover:text-white text-lg">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                        <div class="flex gap-2">
+                            <button onclick="LeaderboardManager.setTab('pv')" id="btnModalTopTabPv" class="px-3 py-1.5 rounded font-pixel text-[10px] bg-yellow-500 text-slate-950 font-bold">
+                                ⭐ MEJORES PUNTUACIONES (PV)
+                            </button>
+                            <button onclick="LeaderboardManager.setTab('ranked')" id="btnModalTopTabRanked" class="px-3 py-1.5 rounded font-pixel text-[10px] bg-slate-800 text-slate-300">
+                                ⚔️ CLASIFICACIÓN RANKED 4J (RP)
+                            </button>
+                        </div>
+                        <button onclick="LeaderboardManager.exportScoresTxt()" class="bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/40 text-xs font-bold px-3 py-1.5 rounded-lg">
+                            <i class="fas fa-download mr-1"></i> Exportar TOP (.txt)
+                        </button>
+                    </div>
+                    <div id="modalTopScoresContainer" class="flex-1 overflow-y-auto pr-1"></div>
+                    <div class="flex justify-end pt-4 mt-4 border-t border-slate-700">
+                        <button onclick="UI.closeModal('modalLeaderboard')" class="pixel-btn bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-6 py-2.5">
+                            CERRAR SALÓN DE LA FAMA
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+    },
+
+    getScores() {
+        try {
+            const raw = localStorage.getItem(this.storageKeyScores);
+            return raw ? JSON.parse(raw) : [];
+        } catch (e) {
+            return [];
+        }
+    },
+
+    saveScores(list) {
+        try {
+            const sorted = this.sortScoresList(list).slice(0, this.maxEntries);
+            localStorage.setItem(this.storageKeyScores, JSON.stringify(sorted));
+        } catch (e) {}
+    },
+
+    sortScoresList(list) {
+        return [...list].sort((a, b) => {
+            if (b.pv !== a.pv) return b.pv - a.pv;
+            if ((b.capturedCount || 0) !== (a.capturedCount || 0)) return (b.capturedCount || 0) - (a.capturedCount || 0);
+            return (b.yen || 0) - (a.yen || 0);
+        });
+    },
+
+    getRankedProfiles() {
+        try {
+            const raw = localStorage.getItem(this.storageKeyRanked);
+            return raw ? JSON.parse(raw) : {};
+        } catch (e) {
+            return {};
+        }
+    },
+
+    saveRankedProfiles(map) {
+        try {
+            localStorage.setItem(this.storageKeyRanked, JSON.stringify(map));
+        } catch (e) {}
+    },
+
+    getPlayerRankedProfile(rawName) {
+        const cleanName = normalizeTrainerName(rawName, 'Jugador');
+        const key = cleanName.toLocaleLowerCase('es-ES');
+        const profiles = this.getRankedProfiles();
+        if (!profiles[key]) {
+            profiles[key] = {
+                name: cleanName,
+                rp: 1000,
+                wins: 0,
+                games: 0,
+                bestPV: 0
+            };
+            this.saveRankedProfiles(profiles);
+        }
+        return profiles[key];
+    },
+
+    getRankTierLabel(rp) {
+        if (rp >= 1500) return { title: 'Maestro Gacha', color: 'text-yellow-300', badge: '👑' };
+        if (rp >= 1300) return { title: 'Diamante', color: 'text-cyan-300', badge: '💎' };
+        if (rp >= 1150) return { title: 'Oro', color: 'text-amber-300', badge: '🥇' };
+        if (rp >= 1050) return { title: 'Plata', color: 'text-slate-200', badge: '🥈' };
+        return { title: 'Bronce', color: 'text-orange-400', badge: '🥉' };
+    },
+
+    updateMyRankedBadge() {
+        const name = getInputTrainerName('Jugador 1');
+        const prof = this.getPlayerRankedProfile(name);
+        const tier = this.getRankTierLabel(prof.rp);
+        const el = document.getElementById('myRankedRpText');
+        if (el) {
+            el.innerHTML = `${tier.badge} ${prof.rp} RP • <span class="${tier.color}">${tier.title}</span>`;
+        }
+    },
+
+    recordMatchResults(sortedResults, gameState) {
+        if (!Array.isArray(sortedResults) || sortedResults.length === 0) return;
+
+        const isRanked = !!gameState?.isRanked;
+        const modeLabel = isRanked ? 'ranked' : (gameState?.mode || 'solo');
+        const dateStr = new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        const scores = this.getScores();
+        const profiles = this.getRankedProfiles();
+        const rpDeltas = [30, 12, -6, -15];
+
+        sortedResults.forEach((r, idx) => {
+            const p = r.player;
+            if (!p) return;
+
+            // Determinar el mejor Pokémon capturado
+            let bestPk = null;
+            p.captured.forEach(c => {
+                if (!bestPk || c.pokemon.rarityRank > bestPk.rarityRank) {
+                    bestPk = c.pokemon;
+                }
+            });
+
+            // Registrar en TOP Puntuaciones (solo humanos o campeones destacados)
+            if (!p.isAI) {
+                const entryId = `score_${Date.now()}_${idx}_${p.name.replace(/\s+/g, '')}`;
+                scores.push({
+                    id: entryId,
+                    name: p.name,
+                    pv: r.bd.totalPV,
+                    capturedCount: p.captured.length,
+                    bestPokemonName: bestPk ? bestPk.name : 'Ninguno',
+                    bestPokemonDex: bestPk ? bestPk.dexNum : null,
+                    bestPokemonRarity: bestPk ? bestPk.rarity : '-',
+                    yen: p.yen,
+                    mode: modeLabel,
+                    rankPos: idx + 1,
+                    date: dateStr,
+                    isNew: true
+                });
+            }
+
+            // Si es partida Clasificatoria de 4 jugadores, actualizar RP
+            if (isRanked && !p.isAI) {
+                const key = p.name.toLocaleLowerCase('es-ES');
+                const current = profiles[key] || { name: p.name, rp: 1000, wins: 0, games: 0, bestPV: 0 };
+                const delta = rpDeltas[idx] ?? -10;
+                current.name = p.name;
+                current.rp = Math.max(100, current.rp + delta);
+                current.games = (current.games || 0) + 1;
+                if (idx === 0) current.wins = (current.wins || 0) + 1;
+                if (r.bd.totalPV > (current.bestPV || 0)) current.bestPV = r.bd.totalPV;
+                current.lastDelta = delta;
+                profiles[key] = current;
+            }
+        });
+
+        this.saveScores(scores);
+        this.saveRankedProfiles(profiles);
+        this.updateMyRankedBadge();
+        this.renderAllLeaderboards();
+    },
+
+    mergeExternalLeaderboardData(extScores = [], extProfiles = {}) {
+        const currentScores = this.getScores();
+        const existingIds = new Set(currentScores.map(s => s.id));
+        extScores.forEach(s => {
+            if (s && s.id && !existingIds.has(s.id) && typeof s.pv === 'number') {
+                currentScores.push({ ...s, isNew: false });
+                existingIds.add(s.id);
+            }
+        });
+        this.saveScores(currentScores);
+
+        const currentProfiles = this.getRankedProfiles();
+        Object.entries(extProfiles || {}).forEach(([k, extP]) => {
+            if (!extP || !extP.name) return;
+            const localP = currentProfiles[k];
+            if (!localP || (extP.games || 0) > (localP.games || 0) || (extP.bestPV || 0) > (localP.bestPV || 0)) {
+                currentProfiles[k] = extP;
+            }
+        });
+        this.saveRankedProfiles(currentProfiles);
+        this.renderAllLeaderboards();
+    },
+
+	setTab(tab) {
+        AudioEngine.sfxClick();
+        this.currentTab = tab;
+        const activePill = 'px-3 py-1 rounded-full font-pixel text-[9px] bg-yellow-500 text-slate-950 font-bold transition shadow';
+        const idlePill = 'px-3 py-1 rounded-full font-pixel text-[9px] bg-slate-900 text-slate-300 border border-slate-700 hover:border-slate-500 transition';
+
+        const b1 = document.getElementById('btnTopTabPv');
+        const b2 = document.getElementById('btnTopTabRanked');
+        if (b1) b1.className = tab === 'pv' ? activePill : idlePill;
+        if (b2) b2.className = tab === 'ranked' ? activePill : idlePill;
+
+        const m1 = document.getElementById('btnModalTopTabPv');
+        const m2 = document.getElementById('btnModalTopTabRanked');
+        if (m1) m1.className = tab === 'pv' ? 'px-3 py-1.5 rounded font-pixel text-[10px] bg-yellow-500 text-slate-950 font-bold' : 'px-3 py-1.5 rounded font-pixel text-[10px] bg-slate-800 text-slate-300';
+        if (m2) m2.className = tab === 'ranked' ? 'px-3 py-1.5 rounded font-pixel text-[10px] bg-yellow-500 text-slate-950 font-bold' : 'px-3 py-1.5 rounded font-pixel text-[10px] bg-slate-800 text-slate-300';
+
+        this.renderAllLeaderboards();
+    },
+
+    buildCompactLobbyPodiumHTML() {
+        if (this.currentTab === 'ranked') {
+            const profilesList = Object.values(this.getRankedProfiles()).sort((a, b) => {
+                if (b.rp !== a.rp) return b.rp - a.rp;
+                return (b.bestPV || 0) - (a.bestPV || 0);
+            }).slice(0, 4);
+
+            if (profilesList.length === 0) {
+                return `<div class="text-xs text-slate-400 italic py-2 text-center">Juega tu primera partida en Cola Clasificatoria 4J para inaugurar la Liga RP.</div>`;
+            }
+
+            return `
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+                ${profilesList.map((p, idx) => {
+                    const tier = this.getRankTierLabel(p.rp);
+                    const medal = idx === 0 ? '🥇' : (idx === 1 ? '🥈' : (idx === 2 ? '🥉' : '4.º'));
+                    return `
+                    <div onclick="UI.openModal('modalLeaderboard')" class="cursor-pointer bg-slate-950/80 hover:bg-slate-900 border ${idx === 0 ? 'border-yellow-400/60' : 'border-slate-800'} rounded-2xl px-3.5 py-2.5 flex items-center justify-between transition hover:-translate-y-0.5">
+                        <div class="flex items-center gap-2.5 min-w-0">
+                            <span class="font-pixel text-xs text-yellow-400 shrink-0">${medal}</span>
+                            <div class="truncate">
+                                <div class="font-bold text-xs text-white truncate">${escapeHTML(p.name)}</div>
+                                <div class="text-[10px] ${tier.color}">${tier.badge} ${tier.title} • ${p.wins || 0}V</div>
+                            </div>
+                        </div>
+                        <span class="font-pixel text-xs text-yellow-300 bg-slate-900 px-2 py-1 rounded-lg border border-slate-800 shrink-0">${p.rp} RP</span>
+                    </div>`;
+                }).join('')}
+            </div>`;
+        }
+
+        const scores = this.getScores().slice(0, 4);
+        return `
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+            ${scores.map((s, idx) => {
+                const medal = idx === 0 ? '🥇' : (idx === 1 ? '🥈' : (idx === 2 ? '🥉' : `#${idx + 1}`));
+                const spriteHtml = s.bestPokemonDex
+                    ? `<img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${s.bestPokemonDex}.png" class="w-9 h-9 object-contain bg-slate-900 rounded-xl border border-slate-800 shrink-0" alt="${escapeHTML(s.bestPokemonName)}">`
+                    : '';
+                return `
+                <div onclick="UI.openModal('modalLeaderboard')" class="cursor-pointer bg-slate-950/80 hover:bg-slate-900 border ${idx === 0 ? 'border-yellow-400/60 shadow-[0_0_15px_rgba(250,204,21,0.12)]' : 'border-slate-800'} rounded-2xl px-3 py-2 flex items-center justify-between gap-2 transition hover:-translate-y-0.5">
+                    <div class="flex items-center gap-2 min-w-0">
+                        ${spriteHtml}
+                        <div class="truncate">
+                            <div class="text-xs font-bold text-white truncate">${medal} ${escapeHTML(s.name)}</div>
+                            <div class="text-[10px] text-emerald-400 truncate">${escapeHTML(s.bestPokemonName || 'Sin capturas')}</div>
+                        </div>
+                    </div>
+                    <div class="text-right shrink-0">
+                        <div class="font-pixel text-xs text-yellow-300">${s.pv} PV</div>
+                        <div class="text-[9px] text-slate-400 uppercase">${escapeHTML(s.mode || 'solo')}</div>
+                    </div>
+                </div>`;
+            }).join('')}
+        </div>`;
+    },
+
+    renderAllLeaderboards() {
+        const lobbyContainer = document.getElementById('lobbyTopScoresContainer');
+        if (lobbyContainer) {
+            lobbyContainer.innerHTML = this.buildCompactLobbyPodiumHTML();
+        }
+        const modalContainer = document.getElementById('modalTopScoresContainer');
+        if (modalContainer) {
+            modalContainer.innerHTML = this.buildTableHTML(25);
+        }
+    },
+    exportScoresTxt() {
+        const scores = this.getScores();
+        const lines = [
+            '=== 🏆 TOP PUNTUACIONES PERMANENTE - GACHAKÉMON ===',
+            ...scores.map((s, i) => `#${i + 1} | ${s.name} | ${s.pv} PV | Capturas: ${s.capturedCount} (Mejor: ${s.bestPokemonName}) | Modo: ${s.mode.toUpperCase()} | Fecha: ${s.date}`)
+        ];
+        const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `gachakemon_top_puntuaciones_${Date.now()}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    }
+};
+
+
+// ============================================================================
+// 17. SISTEMA DE COLA ONLINE CLASIFICATORIA SOLO PARA 4 JUGADORES
+// ============================================================================
+const RankedQueueManager = {
+    REQUIRED_PLAYERS: 4,
+    MAX_SLOTS: 5,
+    inQueue: false,
+    isQueueHost: false,
+    currentSlotIdx: 1,
+    queuePlayers: [],
+    queueTimerId: null,
+    queueSeconds: 0,
+    matchStarted: false,
+    countdownTimerId: null,
+
+    getSlotPeerId(slotIdx) {
+        return `guillex32-gachakemon-ranked4p-slot-${slotIdx}`;
+    },
+
+    async joinQueue() {
+        if (this.inQueue || OnlineManager.connecting) return;
+        AudioEngine.sfxClick();
+
+        if (!window.isSecureContext && location.protocol !== 'file:') {
+            UI.showAlert('Conexión segura necesaria', 'Abre el juego mediante HTTPS o localhost para usar el emparejamiento online WebRTC.', '🔒');
+            return;
+        }
+
+        const loaded = await OnlineManager.ensurePeerLibrary();
+        if (!loaded) {
+            UI.showAlert('PeerJS no disponible', 'No se pudo cargar la librería de red PeerJS. Revisa tu conexión a Internet.', '⚠️');
+            return;
+        }
+
+        OnlineManager.resetConnections();
+        this.inQueue = true;
+        this.matchStarted = false;
+        this.currentSlotIdx = 1;
+        this.queueSeconds = 0;
+
+        this.updateQueueVisibility(true);
+        this.startQueueClock();
+        this.tryJoinOrHostSlot(this.currentSlotIdx);
+    },
+
+    leaveQueue(silent = false) {
+        if (!silent) AudioEngine.sfxClick();
+        this.inQueue = false;
+        this.isQueueHost = false;
+        this.matchStarted = false;
+        this.queuePlayers = [];
+
+        if (this.queueTimerId) clearInterval(this.queueTimerId);
+        if (this.countdownTimerId) clearInterval(this.countdownTimerId);
+        this.queueTimerId = null;
+        this.countdownTimerId = null;
+
+        OnlineManager.resetConnections();
+        this.updateQueueVisibility(false);
+    },
+
+    startQueueClock() {
+        if (this.queueTimerId) clearInterval(this.queueTimerId);
+        const timerEl = document.getElementById('rankedQueueTimer');
+        this.queueTimerId = setInterval(() => {
+            this.queueSeconds++;
+            const mins = String(Math.floor(this.queueSeconds / 60)).padStart(2, '0');
+            const secs = String(this.queueSeconds % 60).padStart(2, '0');
+            if (timerEl) timerEl.textContent = `${mins}:${secs}`;
+        }, 1000);
+    },
+
+    updateQueueVisibility(active) {
+        document.getElementById('rankedQueueIdleBox')?.classList.toggle('hidden', active);
+        document.getElementById('rankedQueueActiveBox')?.classList.toggle('hidden', !active);
+    },
+
+    tryJoinOrHostSlot(slotIdx) {
+        if (!this.inQueue) return;
+        if (slotIdx > this.MAX_SLOTS) {
+            slotIdx = 1;
+        }
+        this.currentSlotIdx = slotIdx;
+        const slotPeerId = this.getSlotPeerId(slotIdx);
+
+        const channelBadge = document.getElementById('rankedQueueChannelBadge');
+        if (channelBadge) channelBadge.textContent = `Cola #${slotIdx}`;
+        this.setQueueStatus(`Buscando sala en Cola Clasificatoria #${slotIdx}...`, 'Conectando con PeerJS Cloud...');
+
+        OnlineManager.resetConnections();
+        this.inQueue = true;
+
+        try {
+            // Intentar reclamar el ID determinista de anfitrión de cola
+            const peer = new Peer(slotPeerId, OnlineManager.getPeerOptions());
+            OnlineManager.peer = peer;
+
+            peer.on('open', () => {
+                if (!this.inQueue) return;
+                // ¡Éxito! Este jugador se convierte en el Anfitrión de la Cola Clasificatoria
+                this.isQueueHost = true;
+                OnlineManager.isHost = true;
+                OnlineManager.peerReady = true;
+                OnlineManager.roomCode = `RK0${slotIdx}`;
+                OnlineManager.myPeerId = `rhost_${slotIdx}_${Date.now().toString().slice(-4)}`;
+
+                const myName = getInputTrainerName('Jugador 1');
+                const myProfile = LeaderboardManager.getPlayerRankedProfile(myName);
+
+                this.queuePlayers = [{
+                    id: OnlineManager.myPeerId,
+                    name: myName,
+                    rp: myProfile.rp,
+                    isAI: false
+                }];
+                OnlineManager.lobbyPlayers = [...this.queuePlayers];
+
+                this.setQueueStatus(
+                    `EN COLA CLASIFICATORIA (ESPERANDO JUGADORES)`,
+                    `La partida comenzará automáticamente en cuanto se unan los 4 jugadores (0 bots permitidos).`
+                );
+                this.renderQueueSlots();
+            });
+
+            peer.on('connection', conn => {
+                this.handleIncomingQueueConnection(conn);
+            });
+
+            peer.on('error', err => {
+                if (!this.inQueue) return;
+                // Si el ID ya está ocupado, significa que ya hay un anfitrión esperando en este slot -> nos unimos como cliente
+                if (err && err.type === 'unavailable-id') {
+                    this.connectToExistingQueueHost(slotIdx);
+                } else {
+                    console.warn('[RankedQueue] Error en Peer:', err);
+                    this.setQueueStatus('Reintentando conexión a la cola...', OnlineManager.explainPeerError(err));
+                }
+            });
+        } catch (e) {
+            console.error('[RankedQueue] Excepción creando cola:', e);
+        }
+    },
+
+    connectToExistingQueueHost(slotIdx) {
+        if (!this.inQueue) return;
+        const targetHostPeerId = this.getSlotPeerId(slotIdx);
+        this.isQueueHost = false;
+        OnlineManager.isHost = false;
+        OnlineManager.roomCode = `RK0${slotIdx}`;
+        OnlineManager.myPeerId = 'rclient_' + Math.random().toString(36).slice(2, 10);
+
+        if (OnlineManager.peer) {
+            try { OnlineManager.peer.destroy(); } catch (_) {}
+        }
+
+        const clientPeer = new Peer(undefined, OnlineManager.getPeerOptions());
+        OnlineManager.peer = clientPeer;
+
+        clientPeer.on('open', () => {
+            if (!this.inQueue) return;
+            OnlineManager.peerReady = true;
+            const conn = clientPeer.connect(targetHostPeerId, { reliable: true });
+            OnlineManager.hostConn = conn;
+
+            conn.on('open', () => {
+                const myName = getInputTrainerName('Jugador');
+                const myProfile = LeaderboardManager.getPlayerRankedProfile(myName);
+                conn.send({
+                    type: 'RANKED_QUEUE_JOIN',
+                    player: {
+                        id: OnlineManager.myPeerId,
+                        name: myName,
+                        rp: myProfile.rp
+                    },
+                    topScores: LeaderboardManager.getScores(),
+                    rankedProfiles: LeaderboardManager.getRankedProfiles()
+                });
+            });
+
+            conn.on('data', data => this.handleQueueMessage(data, conn));
+
+            conn.on('close', () => {
+                if (this.inQueue && !this.matchStarted && (!GameController.state || GameController.state.gameOver)) {
+                    this.setQueueStatus('El anfitrión de la cola se desconectó. Reubicando...', 'Buscando nuevo canal...');
+                    setTimeout(() => this.tryJoinOrHostSlot(1), 1200);
+                }
+            });
+        });
+
+        clientPeer.on('error', err => {
+            if (!this.inQueue) return;
+            if (err && err.type === 'peer-unavailable') {
+                setTimeout(() => this.tryJoinOrHostSlot(slotIdx), 800);
+            }
+        });
+    },
+
+    handleIncomingQueueConnection(conn) {
+        if (!this.isQueueHost) return;
+
+        conn.on('open', () => {
+            // Si la partida ya empezó o ya hay 4 jugadores, redirigir al siguiente canal de cola
+            if (this.matchStarted || this.queuePlayers.length >= this.REQUIRED_PLAYERS) {
+                try {
+                    conn.send({
+                        type: 'RANKED_QUEUE_BUSY',
+                        nextSlot: (this.currentSlotIdx % this.MAX_SLOTS) + 1
+                    });
+                } catch (_) {}
+                setTimeout(() => { try { conn.close(); } catch (_) {} }, 400);
+                return;
+            }
+            if (!OnlineManager.connections.includes(conn)) {
+                OnlineManager.connections.push(conn);
+            }
+        });
+
+        conn.on('data', data => this.handleQueueMessage(data, conn));
+
+        conn.on('close', () => {
+            OnlineManager.connections = OnlineManager.connections.filter(c => c !== conn);
+            if (!this.matchStarted && conn.playerId) {
+                this.queuePlayers = this.queuePlayers.filter(p => p.id !== conn.playerId);
+                OnlineManager.lobbyPlayers = [...this.queuePlayers];
+                if (this.countdownTimerId) {
+                    clearInterval(this.countdownTimerId);
+                    this.countdownTimerId = null;
+                }
+                this.broadcastQueueUpdate();
+                this.renderQueueSlots();
+                this.setQueueStatus(
+                    `EN COLA CLASIFICATORIA (${this.queuePlayers.length}/4 JUGADORES)`,
+                    `Un jugador salió de la cola. Esperando completar las 4 plazas...`
+                );
+            }
+        });
+    },
+
+    handleQueueMessage(msg, conn) {
+        if (!msg || typeof msg !== 'object') return;
+
+        // Sincronizar récords de TOP Puntuaciones entre pares conectados
+        if (Array.isArray(msg.topScores) || msg.rankedProfiles) {
+            LeaderboardManager.mergeExternalLeaderboardData(msg.topScores, msg.rankedProfiles);
+        }
+
+        // Si el nodo anfitrión nos indica que su cola de 4 jugadores ya está llena/en curso, saltamos al siguiente slot
+        if (!this.isQueueHost && msg.type === 'RANKED_QUEUE_BUSY') {
+            const nextSlot = msg.nextSlot || (this.currentSlotIdx + 1);
+            this.tryJoinOrHostSlot(nextSlot);
+            return;
+        }
+
+        // Anfitrión recibe solicitud de unión a la cola de 4 jugadores
+        if (this.isQueueHost && msg.type === 'RANKED_QUEUE_JOIN' && msg.player) {
+            if (this.matchStarted || this.queuePlayers.length >= this.REQUIRED_PLAYERS) {
+                try {
+                    conn.send({
+                        type: 'RANKED_QUEUE_BUSY',
+                        nextSlot: (this.currentSlotIdx % this.MAX_SLOTS) + 1
+                    });
+                } catch (_) {}
+                return;
+            }
+
+            const remoteId = String(msg.player.id || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40);
+            if (!remoteId || this.queuePlayers.some(p => p.id === remoteId)) return;
+
+            const uniqueName = makeUniquePlayerName(
+                msg.player.name,
+                this.queuePlayers.map(p => p.name),
+                `Entrenador ${this.queuePlayers.length + 1}`
+            );
+
+            conn.playerId = remoteId;
+            this.queuePlayers.push({
+                id: remoteId,
+                name: uniqueName,
+                rp: parseInt(msg.player.rp, 10) || 1000,
+                isAI: false
+            });
+            OnlineManager.lobbyPlayers = [...this.queuePlayers];
+
+            this.broadcastQueueUpdate();
+            this.renderQueueSlots();
+
+            // ¡Comprobar si ya hemos alcanzado exactamente los 4 jugadores humanos!
+            if (this.queuePlayers.length === this.REQUIRED_PLAYERS) {
+                this.triggerFourPlayerMatchCountdown();
+            } else {
+                this.setQueueStatus(
+                    `EN COLA CLASIFICATORIA (${this.queuePlayers.length}/4 JUGADORES)`,
+                    `Faltan ${this.REQUIRED_PLAYERS - this.queuePlayers.length} jugador(es) más para iniciar la partida automáticamente.`
+                );
+            }
+            return;
+        }
+
+        // Cliente recibe actualización del estado de la cola (1/4..4/4)
+        if (!this.isQueueHost && msg.type === 'RANKED_QUEUE_UPDATE' && Array.isArray(msg.players)) {
+            this.queuePlayers = msg.players.slice(0, this.REQUIRED_PLAYERS);
+            OnlineManager.lobbyPlayers = [...this.queuePlayers];
+            this.renderQueueSlots();
+
+            if (msg.countdown) {
+                this.setQueueStatus(
+                    `⚔️ ¡PARTIDA 4/4 ENCONTRADA! INICIANDO EN ${msg.countdown}s...`,
+                    `¡Los 4 entrenadores están listos! Preparando mesa clasificatoria...`
+                );
+            } else {
+                this.setQueueStatus(
+                    `EN COLA CLASIFICATORIA (${this.queuePlayers.length}/4 JUGADORES)`,
+                    `Esperando a que se unan ${this.REQUIRED_PLAYERS - this.queuePlayers.length} entrenador(es) más...`
+                );
+            }
+            return;
+        }
+
+        // Si el mensaje es de sincronización de partida en curso, delegar en OnlineManager
+        if (msg.type === 'STATE_SYNC') {
+            if (this.inQueue) {
+                this.inQueue = false;
+                if (this.queueTimerId) clearInterval(this.queueTimerId);
+            }
+            OnlineManager.handleNetworkMessage(msg, conn);
+        }
+    },
+
+    broadcastQueueUpdate(countdownSec = null) {
+        if (!this.isQueueHost) return;
+        const payload = {
+            type: 'RANKED_QUEUE_UPDATE',
+            players: this.queuePlayers,
+            countdown: countdownSec,
+            topScores: LeaderboardManager.getScores(),
+            rankedProfiles: LeaderboardManager.getRankedProfiles()
+        };
+        OnlineManager.connections.forEach(conn => {
+            if (conn?.open) {
+                try { conn.send(payload); } catch (_) {}
+            }
+        });
+    },
+
+    triggerFourPlayerMatchCountdown() {
+        if (!this.isQueueHost || this.queuePlayers.length !== this.REQUIRED_PLAYERS) return;
+        AudioEngine.sfxCaptureSuccess();
+        let remaining = 3;
+
+        this.setQueueStatus(
+            `⚔️ ¡PARTIDA 4/4 ENCONTRADA! INICIANDO EN ${remaining}s...`,
+            `¡4 entrenadores conectados! Lanzando partida Clasificatoria Oficial...`
+        );
+        this.broadcastQueueUpdate(remaining);
+
+        if (this.countdownTimerId) clearInterval(this.countdownTimerId);
+        this.countdownTimerId = setInterval(() => {
+            if (this.queuePlayers.length < this.REQUIRED_PLAYERS) {
+                clearInterval(this.countdownTimerId);
+                this.countdownTimerId = null;
+                return;
+            }
+            remaining--;
+            if (remaining > 0) {
+                AudioEngine.sfxClick();
+                this.setQueueStatus(
+                    `⚔️ ¡PARTIDA 4/4 ENCONTRADA! INICIANDO EN ${remaining}s...`,
+                    `¡Preparados! La partida clasificatoria comienza ya.`
+                );
+                this.broadcastQueueUpdate(remaining);
+            } else {
+                clearInterval(this.countdownTimerId);
+                this.countdownTimerId = null;
+                this.launchRankedFourPlayerGame();
+            }
+        }, 1000);
+    },
+
+    launchRankedFourPlayerGame() {
+        if (!this.isQueueHost || this.queuePlayers.length !== this.REQUIRED_PLAYERS) return;
+        this.matchStarted = true;
+        this.inQueue = false;
+        if (this.queueTimerId) clearInterval(this.queueTimerId);
+
+        // Iniciar partida online marcada como Clasificatoria Oficial de 4 Jugadores
+        GameController.startOnlineGameFromLobby(this.queuePlayers);
+        if (GameController.state) {
+            GameController.state.isRanked = true;
+            GameController.addLog('🏆 ¡PARTIDA CLASIFICATORIA OFICIAL (4 JUGADORES) INICIADA! Sin bots, resultados válidos para el Ranking RP y TOP Puntuaciones.', 'text-amber-300 font-bold');
+            GameController.syncAndRender();
+        }
+    },
+
+    setQueueStatus(title, sub) {
+        const tEl = document.getElementById('rankedQueueStatusTitle');
+        const sEl = document.getElementById('rankedQueueSubStatus');
+        if (tEl) tEl.textContent = title;
+        if (sEl) sEl.textContent = sub;
+    },
+
+    renderQueueSlots() {
+        const countBadge = document.getElementById('rankedQueueCountBadge');
+        if (countBadge) countBadge.textContent = `${this.queuePlayers.length}/${this.REQUIRED_PLAYERS}`;
+
+        const grid = document.getElementById('rankedQueueSlotsGrid');
+        if (!grid) return;
+
+        grid.innerHTML = Array.from({ length: this.REQUIRED_PLAYERS }, (_, idx) => {
+            const p = this.queuePlayers[idx];
+            if (p) {
+                const tier = LeaderboardManager.getRankTierLabel(p.rp || 1000);
+                return `
+                <div class="bg-slate-900 border-2 border-emerald-500/80 rounded-xl p-2.5 flex flex-col items-center text-center shadow">
+                    <div class="w-8 h-8 rounded-full bg-emerald-500/20 border border-emerald-400 flex items-center justify-center text-sm mb-1">
+                        ${tier.badge}
+                    </div>
+                    <div class="font-bold text-xs text-white truncate w-full">${escapeHTML(p.name)}</div>
+                    <div class="text-[10px] font-pixel ${tier.color} mt-0.5">${p.rp || 1000} RP</div>
+                    <span class="mt-1 bg-emerald-500/20 text-emerald-300 text-[9px] px-2 py-0.5 rounded font-bold">✓ LISTO (${idx + 1}/4)</span>
+                </div>`;
+            }
+            return `
+            <div class="bg-slate-900/50 border-2 border-dashed border-slate-700 rounded-xl p-2.5 flex flex-col items-center justify-center text-center min-h-[102px]">
+                <i class="fas fa-user-clock text-slate-500 text-base mb-1 animate-pulse"></i>
+                <div class="text-[11px] font-semibold text-slate-400">Plaza ${idx + 1}/4</div>
+                <div class="text-[9px] text-amber-400/80 mt-0.5">Buscando jugador...</div>
+            </div>`;
+        }).join('');
+    }
+};
+
+// ============================================================================
+// 18. ENLACE CON LOBBY Y GAMECONTROLLER EXISTENTES (ESTILO CARTAS TCG)
+// ============================================================================
+(function hookRankedAndLeaderboard() {
+    // 1. Mantener el estilo de Cartas Físicas (.sts-mode-card) al cambiar de modo en el Lobby
+    Lobby.selectTab = function(tab) {
+        if (RankedQueueManager.inQueue && tab !== 'ranked') {
+            RankedQueueManager.leaveQueue(true);
+        }
+        AudioEngine.sfxClick();
+        this.selectedTab = tab;
+        const tabs = ['solo', 'local', 'online', 'ranked'];
+        tabs.forEach(t => {
+            const btn = document.getElementById('tabBtn' + t.charAt(0).toUpperCase() + t.slice(1));
+            const panel = document.getElementById('panelMode' + t.charAt(0).toUpperCase() + t.slice(1));
+            if (!btn || !panel) return;
+            if (t === tab) {
+                btn.classList.add('active-mode');
+                panel.classList.remove('hidden');
+                panel.classList.add('flex');
+            } else {
+                btn.classList.remove('active-mode');
+                panel.classList.add('hidden');
+                panel.classList.remove('flex');
+            }
+        });
+        LeaderboardManager.updateMyRankedBadge();
+    };
+
+    Lobby.setPlayerCount = function(count) {
+        AudioEngine.sfxClick();
+        this.soloPlayerCount = count;
+        [2, 3, 4].forEach(n => {
+            const btn = document.getElementById(`btnCount${n}`);
+            if (btn) {
+                btn.className = (n === count)
+                    ? 'px-3.5 py-1.5 rounded-lg text-xs font-bold bg-yellow-500 text-slate-950 shadow transition'
+                    : 'px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition';
+            }
+        });
+    };
+
+    Lobby.setLocalCount = function(count) {
+        AudioEngine.sfxClick();
+        this.localPlayerCount = count;
+        [2, 3, 4].forEach(n => {
+            const btn = document.getElementById(`btnLoc${n}`);
+            if (btn) {
+                btn.className = (n === count)
+                    ? 'px-3.5 py-1 rounded-lg bg-yellow-500 text-slate-950 text-xs font-bold shadow transition'
+                    : 'px-3.5 py-1 rounded-lg text-slate-400 hover:text-white text-xs font-bold transition';
+            }
+        });
+        this.renderLocalPlayerInputs();
+    };
+
+    // 2. Enlazar el final de la partida para guardar automáticamente en el TOP Puntuaciones Permanente
+    const originalFinishGame = GameController.finishGameAndShowScoreboard.bind(GameController);
+    GameController.finishGameAndShowScoreboard = function() {
+        originalFinishGame();
+
+        if (!this.state) return;
+        const results = this.state.players.map(p => {
+            const bd = ScoringEngine.calculateBreakdown(p, true);
+            const maxPokeRank = p.captured.reduce((m, c) => Math.max(m, c.pokemon.rarityRank), 0);
+            const allBalls = ScoringEngine.getAllPlayerBalls(p);
+            const maxBallRank = allBalls.reduce((m, b) => Math.max(m, b.rarityRank), 0);
+            const maxBallCount = allBalls.filter(b => b.rarityRank === maxBallRank).length;
+            return { player: p, bd, maxPokeRank, maxBallRank, maxBallCount };
+        }).sort((a, b) => {
+            if (b.bd.totalPV !== a.bd.totalPV) return b.bd.totalPV - a.bd.totalPV;
+            if (b.maxPokeRank !== a.maxPokeRank) return b.maxPokeRank - a.maxPokeRank;
+            if (b.maxBallRank !== a.maxBallRank) return b.maxBallRank - a.maxBallRank;
+            if (b.maxBallCount !== a.maxBallCount) return b.maxBallCount - a.maxBallCount;
+            return b.player.yen - a.player.yen;
+        });
+
+        LeaderboardManager.recordMatchResults(results, this.state);
+
+        const wrap = document.getElementById('finalScoreboardTableWrap');
+        if (wrap) {
+            const rankedBanner = this.state.isRanked
+                ? `<div class="mt-3 p-2.5 rounded-xl bg-amber-500/15 border border-amber-400 text-center text-xs text-amber-200 font-bold">
+                       ⚔️ PARTIDA CLASIFICATORIA 4J REGISTRADA: Puntos RP y récords actualizados en el Salón de la Fama.
+                   </div>`
+                : `<div class="mt-3 p-2 rounded-xl bg-slate-950 border border-slate-700 text-center text-xs text-emerald-300">
+                       🏆 Las puntuaciones de esta partida se han registrado en el <strong>Salón de la Fama</strong>.
+                   </div>`;
+            wrap.insertAdjacentHTML('beforeend', rankedBanner);
+        }
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+        LeaderboardManager.init();
+        const nickInp = document.getElementById('inputPlayerName');
+        nickInp?.addEventListener('input', () => LeaderboardManager.updateMyRankedBadge());
+    });
+})();
+
+window.LeaderboardManager = LeaderboardManager;
+window.RankedQueueManager = RankedQueueManager;

@@ -199,7 +199,85 @@
             border-color: var(--gold-border);
             box-shadow: 0 0 20px var(--gold-glow), 0 0 0 3px #422006, 5px 5px 0 3px rgba(0,0,0,0.7);
         }
-
+		/* === REDISEÑO FLUIDO HEARTHSTONE / SLAY THE SPIRE (v2.15) === */
+        body {
+            background: radial-gradient(ellipse at 50% 20%, #1a2639 0%, #090d16 70%, #05070b 100%) !important;
+        }
+        /* Suavizar las cajas rígidas hacia paneles orgánicos de tablero */
+        .pixel-box {
+            background: linear-gradient(160deg, rgba(30, 41, 59, 0.82) 0%, rgba(15, 23, 42, 0.92) 100%) !important;
+            border: 1px solid rgba(148, 163, 184, 0.22) !important;
+            border-radius: 18px !important;
+            box-shadow: 0 14px 34px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+            backdrop-filter: blur(10px);
+        }
+        .pixel-box-gold {
+            background: linear-gradient(160deg, rgba(30, 41, 59, 0.88) 0%, rgba(15, 23, 42, 0.95) 100%) !important;
+            border: 2px solid rgba(250, 204, 21, 0.45) !important;
+            border-radius: 22px !important;
+            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.75), 0 0 25px rgba(250, 204, 21, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+            backdrop-filter: blur(12px);
+        }
+        /* Cartas de Selección de Modo (Estilo Slay the Spire / Hearthstone) */
+        .sts-mode-card {
+            position: relative;
+            border-radius: 18px;
+            padding: 18px 14px;
+            background: linear-gradient(165deg, rgba(30, 41, 59, 0.85) 0%, rgba(11, 17, 30, 0.95) 100%);
+            border: 2px solid rgba(100, 116, 139, 0.35);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+            transition: all 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+            cursor: pointer;
+            overflow: hidden;
+        }
+        .sts-mode-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 50% 0%, rgba(255,255,255,0.08), transparent 70%);
+            opacity: 0;
+            transition: opacity 0.25s ease;
+        }
+        .sts-mode-card:hover {
+            transform: translateY(-8px) scale(1.03);
+            border-color: rgba(250, 204, 21, 0.65);
+            box-shadow: 0 20px 32px rgba(0, 0, 0, 0.75), 0 0 20px rgba(250, 204, 21, 0.2);
+        }
+        .sts-mode-card:hover::before {
+            opacity: 1;
+        }
+        .sts-mode-card.active-mode {
+            transform: translateY(-10px) scale(1.04);
+            background: linear-gradient(165deg, rgba(51, 65, 85, 0.92) 0%, rgba(15, 23, 42, 0.98) 100%);
+            border-color: #facc15;
+            box-shadow: 0 22px 38px rgba(0, 0, 0, 0.8), 0 0 25px rgba(250, 204, 21, 0.35), inset 0 0 15px rgba(250, 204, 21, 0.12);
+        }
+        /* Bandeja central flotante del Lobby */
+        .hearth-tray {
+            background: radial-gradient(ellipse at top, rgba(30, 41, 59, 0.78) 0%, rgba(9, 13, 22, 0.88) 100%);
+            border: 1px solid rgba(250, 204, 21, 0.28);
+            border-radius: 24px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.08);
+            backdrop-filter: blur(12px);
+        }
+        /* Botón Joya Principal estilo Hearthstone */
+        .hearth-cta-btn {
+            font-family: 'Silkscreen', 'Pixelify Sans', monospace;
+            border-radius: 14px;
+            border: 2px solid #fef08a;
+            box-shadow: 0 6px 0 #713f12, 0 12px 24px rgba(0, 0, 0, 0.6), 0 0 18px rgba(250, 204, 21, 0.35);
+            transition: all 0.16s cubic-bezier(0.34, 1.56, 0.64, 1);
+            text-shadow: 0 2px 4px rgba(0,0,0,0.6);
+        }
+        .hearth-cta-btn:hover:not(:disabled) {
+            transform: translateY(-3px) scale(1.03);
+            box-shadow: 0 9px 0 #713f12, 0 16px 30px rgba(0, 0, 0, 0.7), 0 0 26px rgba(250, 204, 21, 0.55);
+            filter: brightness(1.08);
+        }
+        .hearth-cta-btn:active:not(:disabled) {
+            transform: translateY(3px) scale(0.99);
+            box-shadow: 0 2px 0 #713f12;
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col justify-between">
@@ -257,6 +335,9 @@
                 <button onclick="UI.openModal('modalRules')" class="bg-blue-700 hover:bg-blue-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-blue-500 flex items-center gap-2 w-full justify-start transition">
                     <i class="fas fa-scroll w-4"></i> <span>Reglas Oficiales</span>
                 </button>
+				<button onclick="UI.openModal('modalLeaderboard')" class="bg-yellow-600 hover:bg-yellow-500 text-slate-950 text-xs font-bold px-2.5 py-1.5 rounded-lg border-2 border-yellow-300 flex items-center gap-2 w-full justify-start transition shadow">
+					<i class="fas fa-trophy w-4"></i> <span>TOP Puntuaciones</span>
+				</button>
                 <button onclick="UI.openModal('modalChangelog')" class="bg-cyan-700 hover:bg-cyan-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-cyan-400 flex items-center gap-2 w-full justify-start transition">
                     <i class="fas fa-clock-rotate-left w-4"></i> <span>Historial (Changelog)</span>
                 </button>
@@ -277,170 +358,284 @@
     </header>
     <main class="relative z-10 flex-1 max-w-7xl w-full mx-auto p-2 sm:p-4 flex flex-col">
 
-        <section id="screenLobby" class="flex-1 flex flex-col items-center justify-center py-4">
-            <div class="pixel-box-gold max-w-4xl w-full p-5 sm:p-8 relative overflow-hidden">
-                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
-                    
-                    <div class="lg:col-span-5 flex flex-col items-center text-center bg-slate-900/90 p-5 rounded-xl border-2 border-slate-700">
-                        <div id="lobbyGachaPreview" class="w-40 h-48 mb-3 flex items-center justify-center"></div>
-                        <span class="bg-yellow-500/20 text-yellow-300 border border-yellow-500/40 text-[10px] font-pixel px-2.5 py-1 rounded-full mb-2">
-                            EDICIÓN OFICIAL 60 ESFERAS
-                        </span>
-                        <h2 class="font-pixel text-base sm:text-lg text-white mb-2 leading-snug">
-                            ¡EXTRAE, COLECCIONA Y CAPTURA!
-                        </h2>
-                        <p class="text-xs text-slate-300 leading-relaxed mb-4">
-                            Gestiona tus <strong>PokéYenes (P¥)</strong>, gira la máquina de Gachapon de 60 esferas (13 tipos únicos), supera las Trampas del Team Rocket y domina las <strong>Fases de Safari</strong> cada 3 rondas con las 251 criaturas de Kanto y Johto.
-                        </p>
-                        <div class="grid grid-cols-3 gap-2 w-full text-center text-[11px] bg-slate-800/80 p-2.5 rounded-lg border border-slate-700">
-                            <div>
-                                <div class="text-yellow-400 font-pixel text-xs">60</div>
-                                <div class="text-slate-400">Balls</div>
-                            </div>
-                            <div>
-                                <div class="text-emerald-400 font-pixel text-xs">251</div>
-                                <div class="text-slate-400">Criaturas</div>
-                            </div>
-                            <div>
-                                <div class="text-purple-400 font-pixel text-xs">47+22</div>
-                                <div class="text-slate-400">Efectos+Obj</div>
-                            </div>
-                        </div>
+		<section id="screenLobby" class="flex-1 flex flex-col justify-between py-3 sm:py-6 max-w-5xl mx-auto w-full gap-6">
+            
+            <!-- 1. CABECERA HERO ABIERTA: MÁQUINA FLOTANTE + MEDALLÓN DE ENTRENADOR -->
+            <div class="flex flex-col md:flex-row items-center justify-between gap-6 px-2">
+                
+                <!-- Escultura Gachapon flotando sobre la mesa (sin jaulas) -->
+                <div class="flex items-center gap-5">
+                    <div class="relative group cursor-pointer" onclick="UI.openModal('modalCatalog')" title="Explorar Tolva de 60 Esferas y 251 Criaturas">
+                        <div class="absolute -inset-3 rounded-full bg-yellow-400/15 blur-xl group-hover:bg-yellow-400/30 transition duration-500"></div>
+                        <div id="lobbyGachaPreview" class="relative w-28 h-36 sm:w-32 sm:h-40 animate-float drop-shadow-[0_16px_24px_rgba(0,0,0,0.85)] transition transform group-hover:scale-105"></div>
                     </div>
-
-                    <div class="lg:col-span-7 flex flex-col gap-4">
-                        <div class="border-b border-slate-700 pb-3">
-                            <h3 class="font-pixel text-sm text-yellow-400 mb-1">CONFIGURAR PARTIDA</h3>
-                            <p class="text-xs text-slate-400">Elige modo Solitario contra IA, Multijugador Local o Sala Online (2 a 4 jugadores).</p>
+                    <div class="space-y-2 text-left">
+                        <div class="inline-flex items-center gap-2 bg-yellow-500/15 border border-yellow-400/40 px-3 py-1 rounded-full text-[10px] font-pixel text-yellow-300">
+                            <span>✨ TABLERO TÁCTICO DE COLECCIÓN</span>
                         </div>
-
-                        <div>
-                            <label class="block text-xs font-bold text-slate-300 mb-1 uppercase tracking-wider">Tu Nombre de Entrenador:</label>
-                            <input id="inputPlayerName" type="text" value="" placeholder="Tu nick" maxlength="16"
-                                class="w-full bg-slate-900 border-2 border-slate-600 focus:border-yellow-400 rounded-lg px-3 py-2 text-sm text-white font-semibold outline-none">
-                        </div>
-
-                        <div class="grid grid-cols-3 gap-2">
-                            <button onclick="Lobby.selectTab('solo')" id="tabBtnSolo" class="py-2.5 px-3 rounded-lg font-pixel text-[10px] border-2 border-yellow-400 bg-yellow-500/20 text-yellow-300 flex flex-col items-center gap-1">
-                                <i class="fas fa-robot text-base"></i>
-                                <span>SOLO vs IA</span>
+                        <h2 class="font-pixel text-lg sm:text-2xl text-white tracking-wide drop-shadow">
+                            GACHAKÉMON
+                        </h2>
+                        <p class="text-xs sm:text-sm text-slate-300 max-w-md leading-relaxed">
+                            Extrae esferas, protege tu bandeja de las trampas del Team Rocket y captura criaturas en el Safari.
+                        </p>
+                        <!-- Píldoras interactivas minimalistas -->
+                        <div class="flex flex-wrap items-center gap-2 pt-1 text-[11px]">
+                            <button onclick="UI.openModal('modalCatalog'); UI.switchCatalogTab('balls')" class="bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 px-2.5 py-1 rounded-full text-yellow-300 transition flex items-center gap-1.5">
+                                <i class="fas fa-circle-dot text-[10px]"></i> <span>60 Pokéballs</span>
                             </button>
-                            <button onclick="Lobby.selectTab('local')" id="tabBtnLocal" class="py-2.5 px-3 rounded-lg font-pixel text-[10px] border-2 border-slate-700 bg-slate-800 text-slate-400 flex flex-col items-center gap-1">
-                                <i class="fas fa-users text-base"></i>
-                                <span>LOCAL (2-4J)</span>
+                            <button onclick="UI.openModal('modalCatalog'); UI.switchCatalogTab('dex')" class="bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 px-2.5 py-1 rounded-full text-emerald-300 transition flex items-center gap-1.5">
+                                <i class="fas fa-paw text-[10px]"></i> <span>251 Pokémon</span>
                             </button>
-                            <button onclick="Lobby.selectTab('online')" id="tabBtnOnline" class="py-2.5 px-3 rounded-lg font-pixel text-[10px] border-2 border-slate-700 bg-slate-800 text-slate-400 flex flex-col items-center gap-1">
-                                <i class="fas fa-globe text-base"></i>
-                                <span>ONLINE SALA</span>
+                            <button onclick="UI.openModal('modalRules')" class="bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 px-2.5 py-1 rounded-full text-cyan-300 transition flex items-center gap-1.5">
+                                <i class="fas fa-book-open text-[10px]"></i> <span>Cómo Jugar</span>
                             </button>
                         </div>
-
-                        <div id="panelModeSolo" class="bg-slate-900/90 border border-slate-700 rounded-xl p-4 flex flex-col gap-3">
-                            <div class="flex items-center justify-between">
-                                <span class="text-xs font-semibold text-slate-300">Número total de Jugadores (1 Humano + IAs):</span>
-                                <div class="flex gap-1.5">
-                                    <button onclick="Lobby.setPlayerCount(2)" id="btnCount2" class="px-3 py-1 rounded bg-slate-800 border border-slate-600 text-xs font-bold">2J</button>
-                                    <button onclick="Lobby.setPlayerCount(3)" id="btnCount3" class="px-3 py-1 rounded bg-slate-800 border border-slate-600 text-xs font-bold">3J</button>
-                                    <button onclick="Lobby.setPlayerCount(4)" id="btnCount4" class="px-3 py-1 rounded bg-yellow-500 text-slate-950 border border-yellow-400 text-xs font-bold">4J</button>
-                                </div>
-                            </div>
-                            <div class="text-xs text-slate-400 bg-slate-800/70 p-2.5 rounded-lg border border-slate-700/80 space-y-1">
-                                <div class="font-semibold text-slate-200 mb-1"><i class="fas fa-microchip text-cyan-400 mr-1"></i> Rivales IA incluidos:</div>
-                                <div>• <strong>Bot Rocío (Coleccionista):</strong> Prioriza parejas de Amor Ball, Honor Ball y variedad.</div>
-                                <div>• <strong>Bot Cynthia (Estratega Safari):</strong> Ahorra para Ultra/Lujo Balls y caza criaturas Épicas/Míticas.</div>
-                                <div>• <strong>Bot Giovanni (Team Rocket):</strong> Agresivo con Mercado Negro, trampas y robos.</div>
-                            </div>
-                            <div class="flex items-center justify-between pt-1">
-                                <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer">
-                                    <input type="checkbox" id="chkFastSetup" class="rounded bg-slate-800 border-slate-600 text-yellow-500">
-                                    <span>Selección inicial rápida (1 clic)</span>
-                                </label>
-                                <button onclick="GameController.startLocalOrSoloGame('solo')" class="pixel-btn bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-5 py-3">
-                                    ¡JUGAR AHORA! <i class="fas fa-play ml-1"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div id="panelModeLocal" class="hidden bg-slate-900/90 border border-slate-700 rounded-xl p-4 flex flex-col gap-3">
-                            <div class="flex items-center justify-between">
-                                <span class="text-xs font-semibold text-slate-300">Jugadores Humanos en la mesa:</span>
-                                <div class="flex gap-1.5">
-                                    <button onclick="Lobby.setLocalCount(2)" id="btnLoc2" class="px-3 py-1 rounded bg-yellow-500 text-slate-950 border border-yellow-400 text-xs font-bold">2J</button>
-                                    <button onclick="Lobby.setLocalCount(3)" id="btnLoc3" class="px-3 py-1 rounded bg-slate-800 border border-slate-600 text-xs font-bold">3J</button>
-                                    <button onclick="Lobby.setLocalCount(4)" id="btnLoc4" class="px-3 py-1 rounded bg-slate-800 border border-slate-600 text-xs font-bold">4J</button>
-                                </div>
-                            </div>
-                            <div id="localPlayerNamesContainer" class="grid grid-cols-2 gap-2"></div>
-                            <div class="flex justify-end pt-1">
-                                <button onclick="GameController.startLocalOrSoloGame('local')" class="pixel-btn bg-blue-600 hover:bg-blue-500 text-white text-xs px-5 py-3">
-                                    ¡INICIAR PARTIDA LOCAL! <i class="fas fa-users ml-1"></i>
-                                </button>
-                            </div>
-                        </div>
-
-                        <div id="panelModeOnline" class="hidden bg-slate-900/90 border border-slate-700 rounded-xl p-4 flex flex-col gap-3">
-                            <div class="flex items-center justify-between">
-                                <span class="text-xs text-slate-300 font-semibold">Estado Red Sincronizada:</span>
-                                <span id="onlineAuthStatus" class="text-[11px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                                    Preparado para conectar (PeerJS)
-                                </span>
-                            </div>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div class="bg-slate-800/90 p-3 rounded-lg border border-slate-700 flex flex-col justify-between gap-2">
-                                    <div>
-                                        <div class="text-xs font-bold text-yellow-400 mb-1">CREAR SALA NUEVA</div>
-                                        <p class="text-[11px] text-slate-400">Genera un código de 4 letras para compartir con hasta 3 amigos (puedes rellenar huecos con IA).</p>
-                                    </div>
-                                    <button onclick="OnlineManager.createRoom()" class="pixel-btn bg-purple-600 hover:bg-purple-500 text-white text-[10px] py-2.5 w-full">
-                                        CREAR SALA ONLINE
-                                    </button>
-                                </div>
-                                <div class="bg-slate-800/90 p-3 rounded-lg border border-slate-700 flex flex-col justify-between gap-2">
-                                    <div>
-                                        <div class="text-xs font-bold text-cyan-400 mb-1">UNIRSE CON CÓDIGO</div>
-                                        <input id="inputRoomCode" type="text" placeholder="EJ: KNT2" maxlength="6"
-                                            class="w-full bg-slate-950 border border-slate-600 rounded px-2.5 py-1.5 text-center font-pixel text-xs uppercase text-yellow-300 mb-1">
-                                    </div>
-                                    <button onclick="OnlineManager.joinRoom()" class="pixel-btn bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] py-2.5 w-full">
-                                        UNIRSE A SALA
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div class="bg-slate-950/80 border border-emerald-700/60 rounded-lg p-3 space-y-1">
-                                <div class="text-[11px] font-bold text-emerald-300"><i class="fas fa-wifi mr-1"></i> CONEXIÓN AUTOMÁTICA Y GRATUITA</div>
-                                <p class="text-[10px] text-slate-300">No necesitas registrarte, introducir claves ni configurar servidores. Gachakémon usa PeerJS Cloud y STUN público automáticamente.</p>
-                                <p class="text-[10px] text-amber-300">Aviso: algunas redes con cortafuegos o NAT restrictivo no permiten conexiones directas sin un servidor TURN. En esas redes el online puede no estar disponible.</p>
-                            </div>
-
-                            <div id="onlineRoomBox" class="hidden bg-slate-950 border-2 border-purple-500 rounded-lg p-3 space-y-2">
-                                <div class="flex items-center justify-between">
-                                    <div class="text-xs">
-                                        <span class="text-slate-400">CÓDIGO DE SALA:</span>
-                                        <span id="labelRoomCode" class="font-pixel text-sm text-yellow-400 ml-2 select-all">----</span>
-                                        <button onclick="OnlineManager.copyRoomCode()" class="ml-2 text-xs text-cyan-400 hover:text-cyan-300 underline">
-                                            <i class="fas fa-copy"></i> Copiar
-                                        </button>
-                                    </div>
-                                    <span id="labelRoomPlayersCount" class="text-xs font-bold text-emerald-400">1/4 Jugadores</span>
-                                </div>
-                                <div id="onlinePlayersList" class="grid grid-cols-2 gap-1.5 text-xs"></div>
-                                <div class="flex items-center justify-between pt-2 border-t border-slate-800">
-                                    <button id="btnOnlineAddBot" onclick="OnlineManager.addBotToRoom()" class="bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-600 text-xs px-2.5 py-1 rounded">
-                                        + Añadir Bot IA
-                                    </button>
-                                    <button id="btnOnlineStartGame" onclick="OnlineManager.hostStartGame()" class="pixel-btn bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] px-4 py-2">
-                                        EMPEZAR PARTIDA
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
                     </div>
                 </div>
-            </div>
-        </section>
 
+                <!-- Medallón Flotante de Perfil de Entrenador -->
+                <div class="hearth-tray px-5 py-4 w-full md:w-auto min-w-[275px] flex flex-col gap-2.5">
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] font-pixel text-slate-400 uppercase tracking-wider">
+                            <i class="fas fa-id-badge text-yellow-400 mr-1"></i> Credencial de Entrenador
+                        </span>
+                        <div id="myRankedProfileBadge" class="text-right">
+                            <span class="font-pixel text-[10px] text-yellow-300 bg-yellow-500/15 border border-yellow-400/30 px-2 py-0.5 rounded-full" id="myRankedRpText">1000 RP • Bronce</span>
+                        </div>
+                    </div>
+                    <div class="relative">
+                        <input id="inputPlayerName" type="text" value="" placeholder="Escribe tu nombre..." maxlength="16"
+                            class="w-full bg-slate-950/90 border-2 border-slate-700/90 focus:border-yellow-400 rounded-xl px-3.5 py-2 text-sm text-white font-bold outline-none transition shadow-inner">
+                        <i class="fas fa-pen text-slate-500 text-xs absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 2. CARTAS DE MODO DE JUEGO (ESTILO SLAY THE SPIRE / HEARTHSTONE) -->
+            <div class="space-y-4">
+                <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5 px-1">
+                    
+                    <button onclick="Lobby.selectTab('solo')" id="tabBtnSolo" class="sts-mode-card active-mode text-left flex flex-col justify-between min-h-[125px]">
+                        <div class="flex items-center justify-between w-full mb-2">
+                            <div class="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-300 text-lg shadow">
+                                <i class="fas fa-robot"></i>
+                            </div>
+                            <span class="text-[9px] font-pixel text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-500/30">1 JUGADOR</span>
+                        </div>
+                        <div>
+                            <div class="font-pixel text-xs text-white">SOLITARIO vs IA</div>
+                            <p class="text-[11px] text-slate-400 mt-0.5 leading-snug">Enfréntate a los entrenadores automatizados</p>
+                        </div>
+                    </button>
+
+                    <button onclick="Lobby.selectTab('local')" id="tabBtnLocal" class="sts-mode-card text-left flex flex-col justify-between min-h-[125px]">
+                        <div class="flex items-center justify-between w-full mb-2">
+                            <div class="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-400/40 flex items-center justify-center text-blue-300 text-lg shadow">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <span class="text-[9px] font-pixel text-blue-300 bg-blue-950/80 px-2 py-0.5 rounded-full border border-blue-500/30">2 A 4 JUG.</span>
+                        </div>
+                        <div>
+                            <div class="font-pixel text-xs text-white">MESA LOCAL</div>
+                            <p class="text-[11px] text-slate-400 mt-0.5 leading-snug">Partida compartiendo dispositivo en casa</p>
+                        </div>
+                    </button>
+
+                    <button onclick="Lobby.selectTab('online')" id="tabBtnOnline" class="sts-mode-card text-left flex flex-col justify-between min-h-[125px]">
+                        <div class="flex items-center justify-between w-full mb-2">
+                            <div class="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-400/40 flex items-center justify-center text-purple-300 text-lg shadow">
+                                <i class="fas fa-globe"></i>
+                            </div>
+                            <span class="text-[9px] font-pixel text-purple-300 bg-purple-950/80 px-2 py-0.5 rounded-full border border-purple-500/30">CÓDIGO P2P</span>
+                        </div>
+                        <div>
+                            <div class="font-pixel text-xs text-white">SALA DE AMIGOS</div>
+                            <p class="text-[11px] text-slate-400 mt-0.5 leading-snug">Crea o únete a una mesa privada online</p>
+                        </div>
+                    </button>
+
+                    <button onclick="Lobby.selectTab('ranked')" id="tabBtnRanked" class="sts-mode-card text-left flex flex-col justify-between min-h-[125px]">
+                        <div class="flex items-center justify-between w-full mb-2">
+                            <div class="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-400/50 flex items-center justify-center text-amber-300 text-lg shadow">
+                                <i class="fas fa-ranking-star"></i>
+                            </div>
+                            <span class="text-[9px] font-pixel text-slate-950 bg-amber-400 px-2 py-0.5 rounded-full font-bold">RANKED 4J</span>
+                        </div>
+                        <div>
+                            <div class="font-pixel text-xs text-amber-300">CLASIFICATORIA</div>
+                            <p class="text-[11px] text-slate-400 mt-0.5 leading-snug">Cola competitiva oficial solo para 4 humanos</p>
+                        </div>
+                    </button>
+
+                </div>
+
+                <!-- 3. BANDEJA CENTRAL DE PREPARACIÓN (SIN RUIDO VISUAL) -->
+                <div class="hearth-tray p-5 sm:p-6">
+                    
+                    <!-- Modo 1: Solitario vs IA -->
+                    <div id="panelModeSolo" class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div class="flex flex-wrap items-center gap-4">
+                            <div>
+                                <span class="block text-[10px] font-pixel text-slate-400 uppercase mb-1.5">Tamaño de la Mesa</span>
+                                <div class="inline-flex bg-slate-950/90 p-1 rounded-xl border border-slate-800 gap-1">
+                                    <button onclick="Lobby.setPlayerCount(2)" id="btnCount2" class="px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">2 Jugadores</button>
+                                    <button onclick="Lobby.setPlayerCount(3)" id="btnCount3" class="px-3.5 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">3 Jugadores</button>
+                                    <button onclick="Lobby.setPlayerCount(4)" id="btnCount4" class="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-yellow-500 text-slate-950 shadow">4 Jugadores</button>
+                                </div>
+                            </div>
+
+                            <div class="h-8 w-[1px] bg-slate-800 hidden sm:block"></div>
+
+                            <label class="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer bg-slate-950/70 px-3.5 py-2.5 rounded-xl border border-slate-800/90 hover:border-slate-600 transition">
+                                <input type="checkbox" id="chkFastSetup" class="w-4 h-4 rounded accent-yellow-400">
+                                <div>
+                                    <div class="font-bold text-white">Reparto Rápido</div>
+                                    <div class="text-[10px] text-slate-400">Saltar elección inicial de cartas</div>
+                                </div>
+                            </label>
+                        </div>
+
+                        <button onclick="GameController.startLocalOrSoloGame('solo')" class="hearth-cta-btn bg-gradient-to-b from-emerald-500 to-emerald-700 text-white text-xs sm:text-sm px-8 py-4 w-full sm:w-auto shrink-0">
+                            <i class="fas fa-play mr-2"></i> ¡JUGAR PARTIDA!
+                        </button>
+                    </div>
+
+                    <!-- Modo 2: Mesa Local -->
+                    <div id="panelModeLocal" class="hidden flex-col gap-4">
+                        <div class="flex flex-wrap items-center justify-between gap-4">
+                            <div class="flex items-center gap-3">
+                                <span class="text-xs font-pixel text-slate-300">Entrenadores en la Mesa:</span>
+                                <div class="inline-flex bg-slate-950/90 p-1 rounded-xl border border-slate-800 gap-1">
+                                    <button onclick="Lobby.setLocalCount(2)" id="btnLoc2" class="px-3.5 py-1 rounded-lg bg-yellow-500 text-slate-950 text-xs font-bold">2J</button>
+                                    <button onclick="Lobby.setLocalCount(3)" id="btnLoc3" class="px-3.5 py-1 rounded-lg text-slate-400 text-xs font-bold">3J</button>
+                                    <button onclick="Lobby.setLocalCount(4)" id="btnLoc4" class="px-3.5 py-1 rounded-lg text-slate-400 text-xs font-bold">4J</button>
+                                </div>
+                            </div>
+                            <button onclick="GameController.startLocalOrSoloGame('local')" class="hearth-cta-btn bg-gradient-to-b from-blue-500 to-blue-700 text-white text-xs px-7 py-3.5">
+                                <i class="fas fa-users mr-1.5"></i> ¡ABRIR MESA LOCAL!
+                            </button>
+                        </div>
+                        <div id="localPlayerNamesContainer" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1"></div>
+                    </div>
+
+                    <!-- Modo 3: Sala Privada de Amigos -->
+                    <div id="panelModeOnline" class="hidden flex-col gap-4">
+                        <div class="flex flex-wrap items-center justify-between gap-2">
+                            <span class="text-xs text-slate-300 font-semibold">Conecta con amigos mediante código de 4 letras:</span>
+                            <span id="onlineAuthStatus" class="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                                Red P2P Lista
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                            <div class="bg-slate-950/75 p-3.5 rounded-2xl border border-slate-800 flex items-center justify-between gap-3">
+                                <div>
+                                    <div class="text-xs font-bold text-yellow-400">SER ANFITRIÓN</div>
+                                    <p class="text-[11px] text-slate-400">Abre sala e invita hasta 3 amigos</p>
+                                </div>
+                                <button onclick="OnlineManager.createRoom()" class="pixel-btn bg-purple-600 hover:bg-purple-500 text-white text-[10px] px-4 py-2.5 shrink-0">
+                                    CREAR SALA
+                                </button>
+                            </div>
+                            <div class="bg-slate-950/75 p-3.5 rounded-2xl border border-slate-800 flex items-center gap-2.5">
+                                <input id="inputRoomCode" type="text" placeholder="CÓDIGO" maxlength="6"
+                                    class="w-28 bg-slate-900 border border-slate-700 focus:border-cyan-400 rounded-xl px-3 py-2 text-center font-pixel text-xs uppercase text-yellow-300 outline-none">
+                                <button onclick="OnlineManager.joinRoom()" class="pixel-btn bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] py-2.5 px-4 flex-1">
+                                    UNIRSE A SALA
+                                </button>
+                            </div>
+                        </div>
+
+                        <div id="onlineRoomBox" class="hidden bg-slate-950/90 border border-purple-500/60 rounded-2xl p-4 space-y-3">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div class="text-xs flex items-center gap-2">
+                                    <span class="text-slate-400">SALA ACTIVA:</span>
+                                    <span id="labelRoomCode" class="font-pixel text-sm text-yellow-400 bg-slate-900 px-2.5 py-1 rounded border border-yellow-500/30 select-all">----</span>
+                                    <button onclick="OnlineManager.copyRoomCode()" class="text-xs text-cyan-400 hover:text-cyan-300 underline">
+                                        <i class="fas fa-copy"></i> Copiar
+                                    </button>
+                                </div>
+                                <span id="labelRoomPlayersCount" class="text-xs font-bold text-emerald-400">1/4 Jugadores</span>
+                            </div>
+                            <div id="onlinePlayersList" class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs"></div>
+                            <div class="flex items-center justify-between pt-2 border-t border-slate-800/80">
+                                <button id="btnOnlineAddBot" onclick="OnlineManager.addBotToRoom()" class="bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-600/50 text-xs px-3 py-1.5 rounded-xl font-bold">
+                                    + Añadir Bot IA
+                                </button>
+                                <button id="btnOnlineStartGame" onclick="OnlineManager.hostStartGame()" class="hearth-cta-btn bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] px-5 py-2.5">
+                                    EMPEZAR PARTIDA
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Modo 4: Cola Clasificatoria 4 Jugadores -->
+                    <div id="panelModeRanked" class="hidden flex-col gap-3">
+                        <div id="rankedQueueIdleBox" class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div class="space-y-1 text-left">
+                                <div class="font-pixel text-xs text-amber-400 flex items-center gap-2">
+                                    <i class="fas fa-trophy"></i> EMPAREJAMIENTO COMPETITIVO (4 JUGADORES HUMANOS)
+                                </div>
+                                <p class="text-xs text-slate-300">
+                                    Partida oficial sin bots. Al completarse los 4 asientos se inicia automáticamente: 
+                                    <span class="text-emerald-400 font-bold">1.º +30 RP</span> • <span class="text-cyan-400 font-bold">2.º +12 RP</span> • <span class="text-amber-400 font-bold">3.º -6 RP</span> • <span class="text-red-400 font-bold">4.º -15 RP</span>.
+                                </p>
+                            </div>
+                            <button id="btnJoinRankedQueue" onclick="RankedQueueManager.joinQueue()" class="hearth-cta-btn bg-gradient-to-b from-amber-400 to-amber-600 text-slate-950 font-bold text-xs px-7 py-4 shrink-0">
+                                ⚔️ BUSCAR PARTIDA (4J)
+                            </button>
+                        </div>
+
+                        <div id="rankedQueueActiveBox" class="hidden bg-slate-950/90 border border-amber-400/60 rounded-2xl p-4 space-y-3">
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex items-center gap-2">
+                                    <i class="fas fa-circle-notch animate-spin text-amber-400"></i>
+                                    <span id="rankedQueueStatusTitle" class="font-pixel text-xs text-yellow-300">BUSCANDO ENTRENADORES...</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span id="rankedQueueChannelBadge" class="text-[10px] bg-slate-900 border border-slate-700 text-cyan-300 px-2 py-0.5 rounded-full font-mono">Cola #1</span>
+                                    <span id="rankedQueueTimer" class="font-pixel text-xs text-amber-300 bg-amber-950/60 border border-amber-500/40 px-2.5 py-0.5 rounded-full">00:00</span>
+                                    <span id="rankedQueueCountBadge" class="font-pixel text-xs bg-emerald-500 text-slate-950 px-2.5 py-0.5 rounded-full font-bold">1/4</span>
+                                </div>
+                            </div>
+                            <div id="rankedQueueSlotsGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-2.5"></div>
+                            <div class="flex items-center justify-between pt-2 border-t border-slate-800/80">
+                                <span class="text-[11px] text-slate-400" id="rankedQueueSubStatus">Esperando completar los 4 asientos de la mesa...</span>
+                                <button id="btnLeaveRankedQueue" onclick="RankedQueueManager.leaveQueue()" class="bg-red-950/80 hover:bg-red-900 text-red-200 border border-red-500/40 text-xs font-bold px-3.5 py-1.5 rounded-xl transition">
+                                    Cancelar búsqueda
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- 4. PODIO FLOTANTE DEL SALÓN DE LA FAMA (TOP PUNTUACIONES PERMANENTE COMPACTO) -->
+            <div id="permanentLobbyLeaderboard" class="hearth-tray px-5 py-4">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-crown text-yellow-400 text-sm"></i>
+                        <span class="font-pixel text-xs text-yellow-400 tracking-wide">SALÓN DE LA FAMA</span>
+                        <span class="text-[11px] text-slate-400 hidden sm:inline">— Mejores marcas registradas en la mesa</span>
+                    </div>
+                    <div class="flex items-center gap-1.5">
+                        <button onclick="LeaderboardManager.setTab('pv')" id="btnTopTabPv" class="px-3 py-1 rounded-full font-pixel text-[9px] bg-yellow-500 text-slate-950 font-bold transition">
+                            ⭐ TOP PV
+                        </button>
+                        <button onclick="LeaderboardManager.setTab('ranked')" id="btnTopTabRanked" class="px-3 py-1 rounded-full font-pixel text-[9px] bg-slate-900 text-slate-300 border border-slate-700 hover:border-slate-500 transition">
+                            ⚔️ LIGA 4J (RP)
+                        </button>
+                        <button onclick="UI.openModal('modalLeaderboard')" class="px-3 py-1 rounded-full text-[11px] font-bold bg-slate-900 hover:bg-slate-800 text-cyan-300 border border-cyan-500/30 transition">
+                            Ver los 25 <i class="fas fa-arrow-up-right-from-square ml-1 text-[9px]"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="lobbyTopScoresContainer"></div>
+            </div>
+
+        </section>
         <section id="screenGame" class="hidden flex-1 flex flex-col justify-between gap-3 py-1">
             
             <!-- 1. ASIENTOS DE RIVALES EN LA PARTE SUPERIOR DE LA MESA -->
@@ -997,7 +1192,7 @@
                     <i class="fas fa-clock-rotate-left text-cyan-400 text-xl"></i>
                     <div>
                         <h3 class="font-pixel text-sm sm:text-base text-yellow-400">HISTORIAL DE VERSIONES (CHANGELOG)</h3>
-                        <p class="text-xs text-slate-400">Registro de actualizaciones y mejoras de Gachakémon</p>
+                        <p class="text-xs text-slate-400">Registro de actualizaciones y mejoras</p>
                     </div>
                 </div>
                 <button onclick="UI.closeModal('modalChangelog')" class="text-slate-400 hover:text-white text-lg">
@@ -1006,11 +1201,35 @@
             </div>
 
             <div class="flex-1 overflow-y-auto space-y-4 pr-1 text-xs leading-relaxed">
-			
-                <div class="bg-slate-950 border-2 border-yellow-400/80 rounded-xl p-4 space-y-2 shadow-lg">
+				<div class="bg-slate-950 border-2 border-yellow-400/80 rounded-xl p-4 space-y-2 shadow-lg">
                     <div class="flex items-center justify-between gap-2">
-                        <span class="font-pixel text-xs text-yellow-300 bg-yellow-500/20 px-2.5 py-1 rounded border border-yellow-400/50">v2.13 — NUEVO TAPETE DE MESA Y REDUCCIÓN DE RUIDO VISUAL</span>
-                        <span class="text-yellow-400 font-bold">Version actual</span>
+                        <span class="font-pixel text-xs text-yellow-300 bg-yellow-500/20 px-2.5 py-1 rounded border border-yellow-400/50">v2.15 — REDISEÑO FLUIDO DEL LOBBY</span>
+                        <span class="text-yellow-400 font-bold">Versión actual</span>
+                    </div>
+                    <ul class="space-y-1.5 text-slate-200 list-disc list-inside pt-1">
+                        <li><strong>Lobby abierto sobre el tapete:</strong> Eliminadas las cajas anidadas rígidas; la máquina de Gachapon, el medallón de entrenador y las opciones descansan ahora directamente sobre la mesa con iluminación ambiental.</li>
+                        <li><strong>Cartas Físicas de Selección de Modo:</strong> Los 4 modos de juego se presentan como cartas táctiles con elevación 3D, brillo e inclinación suave al pasar el ratón.</li>
+                        <li><strong>Reducción drástica del ruido visual:</strong> Sustituidos los bloques extensos de texto y advertencias técnicas por píldoras interactivas y una bandeja de acción limpia con botón joya principal.</li>
+                        <li><strong>Podio Compacto del Salón de la Fama:</strong> El TOP Puntuaciones en portada muestra ahora los 4 mejores récords como medallas horizontales con el sprite de su mejor Pokémon, manteniendo la tabla completa de 25 registros en el modal ampliado.</li>
+                    </ul>
+                </div>
+				<div class="bg-slate-950 border-2 border-yellow-400/80 rounded-xl p-4 space-y-2 shadow-lg">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="font-pixel text-xs text-yellow-300 bg-yellow-500/20 px-2.5 py-1 rounded border border-yellow-400/50">v2.14 — TOP PUNTUACIONES PERMANENTE Y COLA CLASIFICATORIA 4J</span>
+                        <span class="text-yellow-400 font-bold">Versión actual</span>
+                    </div>
+                    <ul class="space-y-1.5 text-slate-200 list-disc list-inside pt-1">
+                        <li><strong>TOP Puntuaciones (Salón de la Fama):</strong> Nuevo panel fijo en el menú principal y ventana modal accesible desde la barra superior que guarda de forma persistente los récords históricos de Puntos de Victoria (PV), mejor Pokémon capturado, fecha y modalidad.</li>
+                        <li><strong>Cola Online Clasificatoria (Solo 4 Jugadores):</strong> Nuevo sistema de matchmaking automático mediante canales PeerJS que empareja estrictamente a 4 entrenadores humanos (0 bots permitidos) e inicia la partida tras una cuenta atrás al completarse el cupo (4/4).</li>
+                        <li><strong>Sistema de Rango Competitivo (RP):</strong> Clasificación por ligas (Bronce, Plata, Oro, Diamante y Maestro Gacha) con ganancia y pérdida de puntos RP según el puesto obtenido en partidas clasificatorias (+30 / +12 / -6 / -15 RP).</li>
+                        <li><strong>Sincronización P2P de Récords y Exportación:</strong> Los jugadores que coinciden en la cola online comparten y actualizan automáticamente sus tablas de récords, con opción de exportar el historial en formato <code>.txt</code>.</li>
+                    </ul>
+                </div>
+
+                <div class="bg-slate-950 border-2 border-purple-400/70 rounded-xl p-4 space-y-2">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="font-pixel text-xs text-purple-300 bg-purple-500/20 px-2.5 py-1 rounded border border-purple-400/50">v2.13 — NUEVO TAPETE DE MESA Y REDUCCIÓN DE RUIDO VISUAL</span>
+                        <span class="text-slate-400 font-bold">Versión anterior</span>
                     </div>
                     <ul class="space-y-1.5 text-slate-200 list-disc list-inside pt-1">
                         <li><strong>Tablero estilo juego de mesa real:</strong> Rediseño completo del tapete central, eliminando el ruido visual excesivo y unificando los elementos tácticos clave.</li>
