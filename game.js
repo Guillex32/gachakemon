@@ -5304,15 +5304,15 @@ const SettingsManager = {
     ],
 
     current: {
-        bgmVolume: 70,
+        bgmVolume: 40,
         sfxVolume: 85,
         uiScale: 100,
         palette: 'default',
-        fontStyle: 'gba_classic',
+        fontStyle: 'arcade_8bit',
         bgEnabled: true,
         bgOpacity: 48,
         bgCount: 8,
-        crtEnabled: true
+        crtEnabled: false,
     },
 
     init() {
@@ -5444,7 +5444,7 @@ const SettingsManager = {
             sfxVolume: 85,
             uiScale: 100,
             palette: 'default',
-            fontStyle: 'gba_classic',
+            fontStyle: 'arcade_8bit',
             bgEnabled: true,
             bgOpacity: 48,
             bgCount: 8,
@@ -6774,3 +6774,1492 @@ const RankedQueueManager = {
 
 window.LeaderboardManager = LeaderboardManager;
 window.RankedQueueManager = RankedQueueManager;
+// ============================================================================
+// 19. ACTUALIZACIÓN v2.17: TEXTOS RESUMIDOS, SAFARI BOT FIX, DRAFT SIMULTÁNEO,
+//     PERSISTENCIA DE PARTIDA/NOMBRE AL REFRESCAR Y FUENTE ARCADE 8-BIT
+// ============================================================================
+(function applyV217Upgrades() {
+    // 1. Descripciones resumidas y claras para las cartas en la mano (al ampliar se ve 'desc' completa)
+    const SHORT_CARD_DESCRIPTIONS = {
+        escudo_silph: 'Cancela automáticamente 1 robo de Rocket Ball rival.',
+        ticket_devolucion: 'Vende 1 Pokéball libre a la tolva por su valor en P¥.',
+        ficha_trucada: 'Giro gratis inmediato en la máquina de Gachapon.',
+        mercado_negro: 'Paga 1 P¥: cambia 1 Ball libre con un rival (misma rareza).',
+        repelente: 'En Safari: cambia un Pokémon Común por Poco Común o Raro.',
+        baya_dorada: 'En Safari: convierte 1 Cruz en Cara tras lanzar monedas.',
+        captura_critica: 'En Safari: reduce el requisito de 2 o 3 Caras a 1 sola Cara.',
+        inversor_pokemon: 'Paga 3 P¥ al banco y roba 2 Cartas de Efecto.',
+        prestamo_celedon: 'Recibe +5 P¥ ahora. Al final devuelves 7 P¥ (o -3 PV).',
+        subasta_rota: 'Recupera el último Objeto de la pila de descartes.',
+        patrocinio_silph: 'Gana +1 P¥ por cada tipo distinto de Pokéball que tengas.',
+        cupon_rebajas: 'Tu próxima tirada en el Gachapon cuesta solo 1 P¥.',
+        superrepelente: 'En Safari: cambia el Pokémon por uno Raro (Azul) o superior.',
+        pokedex_actualizada: 'Mira 4 cartas del mazo: ordena 3 arriba y 1 al fondo.',
+        intercambio_comercial: 'Envía tu mano al fondo del mazo y roba el mismo número.',
+        capsula_temporal: 'Recupera 1 Objeto descartado o pon 1 Trampa arriba del mazo.',
+        trampa_policia: 'Confisca 1 Rocket Ball libre y pagas 1 P¥ de multa.',
+        trampa_bolsillo: 'Pierdes 2 P¥ de tu reserva al instante.',
+        trampa_averia: '¡Suerte! Realiza 1 giro gratis en el Gachapon.',
+        trampa_suerte: '¡Recibes +3 P¥ del banco inmediatamente!',
+        trampa_apagon: 'Todos los jugadores descartan 1 carta de su mano.',
+        trampa_alerta_rocket: 'Tu Ball libre de menor valor vuelve a la tolva (o -2 P¥).'
+    };
+
+    EFFECT_TEMPLATES.forEach(t => {
+        t.shortDesc = SHORT_CARD_DESCRIPTIONS[t.id] || t.desc;
+    });
+
+    const origBuildEffectDeck47 = GameController.buildEffectDeck47.bind(GameController);
+    GameController.buildEffectDeck47 = function() {
+        const deck = origBuildEffectDeck47();
+        deck.forEach(c => {
+            c.shortDesc = SHORT_CARD_DESCRIPTIONS[c.id] || c.desc;
+        });
+        return deck;
+    };
+
+    // 2. Tipografía por defecto: Arcade 8-Bit (Press Start 2P) y limpieza de duplicados en menú
+    SettingsManager.storageKey = 'gachakemon_settings_v28_arcade';
+    SettingsManager.current.fontStyle = 'arcade_8bit';
+    const origResetDefaults = SettingsManager.resetDefaults.bind(SettingsManager);
+    SettingsManager.resetDefaults = function() {
+        origResetDefaults();
+        this.current.fontStyle = 'arcade_8bit';
+        this.applyAll(true);
+        this.renderSettingsModalControls();
+    };
+
+    function deduplicateLeaderboardMenuButton() {
+        const panel = document.getElementById('headerActionsPanel');
+        if (!panel) return;
+        const buttons = panel.querySelectorAll('button[onclick*="modalLeaderboard"]');
+        if (buttons.length > 1) {
+            for (let i = 1; i < buttons.length; i++) {
+                buttons[i].remove();
+            }
+        }
+        if (buttons[0]) buttons[0].id = 'btnHeaderLeaderboard';
+    }
+
+    // 3. Persistencia del Nombre de Entrenador y de la Partida Activa en localStorage
+    const TRAINER_NAME_KEY = 'gachakemon_trainer_name_v1';
+    const ACTIVE_MATCH_KEY = 'gachakemon_active_match_v1';
+
+    function saveTrainerName(name) {
+        try {
+            const clean = String(name || '').trim().slice(0, 16);
+            if (clean) localStorage.setItem(TRAINER_NAME_KEY, clean);
+        } catch (_) {}
+    }
+
+    function restoreTrainerName() {
+        try {
+            const saved = localStorage.getItem(TRAINER_NAME_KEY);
+            const inp = document.getElementById('inputPlayerName');
+            if (saved && inp) {
+                inp.value = saved;
+                const firstLocal = document.getElementById('localNameInput_0');
+                if (firstLocal) firstLocal.value = saved;
+                if (window.LeaderboardManager) LeaderboardManager.updateMyRankedBadge();
+            }
+        } catch (_) {}
+    }
+
+    GameController.saveActiveMatchToStorage = function() {
+        try {
+            if (!this.state || this.state.gameOver) {
+                localStorage.removeItem(ACTIVE_MATCH_KEY);
+                return;
+            }
+            const snapshot = {
+                timestamp: Date.now(),
+                state: this.state,
+                viewedPlayerIdx: this.viewedPlayerIdx,
+                draftState: this.draftState,
+                onlineMeta: {
+                    roomCode: OnlineManager.roomCode,
+                    isHost: OnlineManager.isHost,
+                    myPeerId: OnlineManager.myPeerId
+                }
+            };
+            localStorage.setItem(ACTIVE_MATCH_KEY, JSON.stringify(snapshot));
+        } catch (e) {
+            console.warn('[Persistence] No se pudo guardar el estado:', e);
+        }
+    };
+
+    GameController.clearSavedMatchStorage = function() {
+        try {
+            localStorage.removeItem(ACTIVE_MATCH_KEY);
+        } catch (_) {}
+    };
+
+    GameController.abandonMatchAndReturnToLobby = function() {
+        AudioEngine.sfxClick();
+        this.clearSavedMatchStorage();
+        this.state = null;
+        UI.closeHeaderMenu();
+        UI.closeModal('modalSafari');
+        UI.closeModal('modalDraftSetup');
+        UI.closeModal('modalGameOver');
+        document.getElementById('screenGame')?.classList.add('hidden');
+        document.getElementById('topGameStatus')?.classList.add('hidden');
+        document.getElementById('topGameStatus')?.classList.remove('flex');
+        document.getElementById('btnAbandonMatch')?.classList.add('hidden');
+        document.getElementById('screenLobby')?.classList.remove('hidden');
+        AudioEngine.setTrack(0);
+    };
+
+    // Permitir refrescar con F5 / Ctrl+R guardando antes el estado actual
+    Lobby.installKeyboardGuards = function() {
+        if (this.keyboardGuardsInstalled) return;
+        this.keyboardGuardsInstalled = true;
+        window.addEventListener('beforeunload', () => {
+            const inp = document.getElementById('inputPlayerName');
+            if (inp && inp.value.trim()) saveTrainerName(inp.value);
+            if (GameController.state && !GameController.state.gameOver) {
+                GameController.saveActiveMatchToStorage();
+            }
+        });
+        window.addEventListener('keydown', event => {
+            if (event.key === 'Escape') UI.closeHeaderMenu();
+        }, true);
+        document.addEventListener('click', event => {
+            const panel = document.getElementById('headerActionsPanel');
+            const toggle = document.getElementById('headerMenuToggle');
+            if (panel && toggle && !panel.contains(event.target) && !toggle.contains(event.target)) {
+                UI.closeHeaderMenu();
+            }
+        });
+    };
+
+    // 4. Selección inicial de cartas (Draft) SIMULTÁNEA para todos los jugadores en Multijugador Online
+    GameController.startOnlineGameFromLobby = function(lobbyPlayers) {
+        AudioEngine.init();
+        const cleanPlayers = lobbyPlayers.map((player, index) => ({
+            ...player,
+            name: normalizeTrainerName(player.name, `Jugador ${index + 1}`)
+        }));
+        // Pasamos false para que en modo Online NO se salte la selección de cartas y aparezca a todos a la vez
+        this.initializeMatchState(cleanPlayers, 'online', false);
+    };
+
+    GameController.prepareInitialDrafts = function(fastSetup) {
+        const isOnline = this.state.mode === 'online';
+        const humanIndices = [];
+
+        this.state.players.forEach((p, idx) => {
+            if (p.isAI || (!isOnline && fastSetup)) {
+                const bestObjIds = this.evaluateBestDraftObjectives(p.draftOfferedObjs);
+                p.objectives = p.draftOfferedObjs.filter(o => bestObjIds.includes(o.id));
+
+                const bestEffIdxs = this.evaluateBestDraftEffects(p.draftOfferedEffs);
+                const chosenEffs = [];
+                const returnedEffs = [];
+                p.draftOfferedEffs.forEach((c, cIdx) => {
+                    if (bestEffIdxs.includes(cIdx)) chosenEffs.push(c);
+                    else returnedEffs.push(c);
+                });
+                p.hand = chosenEffs;
+                this.state.effectDeck.push(...returnedEffs);
+                p.draftConfirmed = true;
+                delete p.draftOfferedObjs;
+                delete p.draftOfferedEffs;
+            } else {
+                p.draftConfirmed = false;
+                humanIndices.push(idx);
+            }
+        });
+
+        this.state.effectDeck = this.shuffle(this.state.effectDeck);
+
+        if (isOnline && humanIndices.length > 0) {
+            this.state.awaitingOnlineDraft = true;
+            this.syncAndRender();
+            this.openOnlineSimultaneousDraftForLocalPlayer();
+            return;
+        }
+
+        if (humanIndices.length > 0) {
+            this.draftState.playerQueue = humanIndices;
+            this.openDraftModalForNextHuman();
+            this.saveActiveMatchToStorage();
+        } else {
+            this.beginTurn(0);
+        }
+    };
+
+    GameController.openOnlineSimultaneousDraftForLocalPlayer = function() {
+        if (!this.state || this.state.mode !== 'online') return;
+        const localIdx = OnlineManager.getLocalPlayerIndex(this.state);
+        if (localIdx < 0) return;
+        const player = this.state.players[localIdx];
+        if (!player || player.isAI || player.draftConfirmed || !player.draftOfferedObjs) return;
+
+        // Si ya está abierto para este jugador, no reiniciar sus selecciones en curso
+        const modal = document.getElementById('modalDraftSetup');
+        if (modal && !modal.classList.contains('hidden') && this.draftState.currentDraftPlayerIdx === localIdx && this.draftState.offeredObjectives?.length > 0) {
+            return;
+        }
+
+        this.draftState.playerQueue = [localIdx];
+        this.draftState.currentDraftPlayerIdx = localIdx;
+        this.draftState.offeredObjectives = player.draftOfferedObjs;
+        this.draftState.offeredEffects = player.draftOfferedEffs;
+        this.draftState.selectedObjIds = [];
+        this.draftState.selectedEffIndices = [];
+
+        document.getElementById('draftModalTitle').textContent = `PREPARACIÓN SIMULTÁNEA: ${player.name.toUpperCase()}`;
+        this.renderDraftModalChoices();
+        UI.openModal('modalDraftSetup');
+    };
+
+    GameController.applyPlayerDraftChoices = function(playerIdx, selectedObjIds, selectedEffIndices) {
+        const player = this.state?.players?.[playerIdx];
+        if (!player || player.draftConfirmed || !player.draftOfferedObjs || !player.draftOfferedEffs) return false;
+
+        player.objectives = player.draftOfferedObjs.filter(o => selectedObjIds.includes(o.id));
+        player.hand = [];
+        player.draftOfferedEffs.forEach((c, idx) => {
+            if (selectedEffIndices.includes(idx)) {
+                player.hand.push(c);
+            } else {
+                this.state.effectDeck.push(c);
+            }
+        });
+        this.state.effectDeck = this.shuffle(this.state.effectDeck);
+        player.draftConfirmed = true;
+        delete player.draftOfferedObjs;
+        delete player.draftOfferedEffs;
+        return true;
+    };
+
+    GameController.confirmDraftSelection = function() {
+        AudioEngine.sfxClick();
+        const pIdx = this.draftState.currentDraftPlayerIdx;
+        const selObjs = [...this.draftState.selectedObjIds];
+        const selEffs = [...this.draftState.selectedEffIndices];
+
+        if (this.state.mode === 'online') {
+            UI.closeModal('modalDraftSetup');
+            if (OnlineManager.isHost) {
+                this.applyPlayerDraftChoices(pIdx, selObjs, selEffs);
+                this.checkAndStartOnlineMatchAfterDraft();
+            } else {
+                // Aplicamos visualmente en local y enviamos nuestras elecciones al anfitrión
+                this.applyPlayerDraftChoices(pIdx, selObjs, selEffs);
+                if (OnlineManager.hostConn?.open) {
+                    OnlineManager.hostConn.send({
+                        type: 'DRAFT_CONFIRM',
+                        actorId: OnlineManager.myPeerId,
+                        selectedObjIds: selObjs,
+                        selectedEffIndices: selEffs
+                    });
+                }
+                const readyCount = this.state.players.filter(p => p.draftConfirmed).length;
+                UI.showAlert(
+                    'Selección Confirmada',
+                    `Has confirmado tus 3 Objetivos y 3 Objetos (${readyCount}/${this.state.players.length} entrenadores listos). La partida comenzará automáticamente en cuanto todos confirmen.`,
+                    '⏳'
+                );
+                this.saveActiveMatchToStorage();
+                UI.renderAll();
+            }
+            return;
+        }
+
+        // Modo Solo o Local
+        this.applyPlayerDraftChoices(pIdx, selObjs, selEffs);
+        this.draftState.playerQueue.shift();
+
+        if (this.draftState.playerQueue.length > 0) {
+            this.openDraftModalForNextHuman();
+            this.saveActiveMatchToStorage();
+        } else {
+            UI.closeModal('modalDraftSetup');
+            this.beginTurn(0);
+        }
+        this.syncAndRender();
+    };
+
+    GameController.checkAndStartOnlineMatchAfterDraft = function() {
+        if (!this.state || !OnlineManager.isHost) return;
+        const allReady = this.state.players.every(p => p.draftConfirmed);
+        if (allReady) {
+            this.state.awaitingOnlineDraft = false;
+            UI.closeModal('modalAlert');
+            this.addLog('✨ ¡Todos los entrenadores han confirmado sus cartas iniciales! Comienza la Ronda 1.', 'text-emerald-300 font-bold');
+            this.beginTurn(0);
+        } else {
+            const readyCount = this.state.players.filter(p => p.draftConfirmed).length;
+            const localIdx = OnlineManager.getLocalPlayerIndex(this.state);
+            if (localIdx >= 0 && this.state.players[localIdx]?.draftConfirmed) {
+                UI.showAlert(
+                    'Esperando al resto de entrenadores',
+                    `Jugadores listos: ${readyCount}/${this.state.players.length}. La partida empezará automáticamente en cuanto todos confirmen.`,
+                    '⏳'
+                );
+            }
+            this.syncAndRender();
+        }
+    };
+
+    // Extender OnlineManager.handleNetworkMessage para soportar DRAFT_CONFIRM simultáneo
+    const origHandleNetworkMessage = OnlineManager.handleNetworkMessage.bind(OnlineManager);
+    OnlineManager.handleNetworkMessage = function(msg, conn = null) {
+        if (this.isHost && msg && msg.type === 'DRAFT_CONFIRM' && GameController.state) {
+            const senderId = conn?.playerId || msg.actorId;
+            const pIdx = GameController.state.players.findIndex(p => p.id === senderId);
+            if (pIdx >= 0 && Array.isArray(msg.selectedObjIds) && Array.isArray(msg.selectedEffIndices)) {
+                GameController.applyPlayerDraftChoices(pIdx, msg.selectedObjIds, msg.selectedEffIndices);
+                GameController.checkAndStartOnlineMatchAfterDraft();
+            }
+            return;
+        }
+        origHandleNetworkMessage(msg, conn);
+    };
+
+    const origReceiveExternalState = GameController.receiveExternalState.bind(GameController);
+    GameController.receiveExternalState = function(extState) {
+        origReceiveExternalState(extState);
+        if (this.state && this.state.mode === 'online') {
+            if (this.state.awaitingOnlineDraft) {
+                this.openOnlineSimultaneousDraftForLocalPlayer();
+            } else {
+                UI.closeModal('modalDraftSetup');
+                // Si se acaba de cerrar el Draft para empezar el turno 1, cerramos el aviso de espera
+                const alertTitle = document.getElementById('alertTitle')?.textContent || '';
+                if (alertTitle.includes('Confirmada') || alertTitle.includes('Esperando')) {
+                    UI.closeModal('modalAlert');
+                }
+            }
+        }
+        this.saveActiveMatchToStorage();
+    };
+
+    // 5. CORRECCIÓN DEFINITIVA DE FASE SAFARI (BOTS CON BAYA DORADA + BLOQUEO TOTAL DE CLICS AJENOS)
+    GameController.safariAiTimerId = null;
+
+    GameController.advanceSafariTurn = function() {
+        if (this.safariAiTimerId) {
+            clearTimeout(this.safariAiTimerId);
+            this.safariAiTimerId = null;
+        }
+        const saf = this.state?.safariState;
+        if (!saf) return;
+
+        const anyWildRemaining = saf.wildSlots.some(w => !w.capturedBy);
+        if (saf.currentStep >= saf.turnOrder.length || !anyWildRemaining) {
+            this.finishSafariPhase();
+            return;
+        }
+
+        const activeIdx = saf.turnOrder[saf.currentStep];
+        const player = this.state.players[activeIdx];
+        if (!player) {
+            this.finishSafariPhase();
+            return;
+        }
+
+        const firstWild = saf.wildSlots.findIndex(w => !w.capturedBy);
+        this.safariTemp = {
+            selectedWildIndex: firstWild >= 0 ? firstWild : 0,
+            selectedTrayBallIndex: 0,
+            criticalActive: false,
+            lastRollCoins: null,
+            awaitingGoldenBerry: false,
+            isRollingCoins: false
+        };
+
+        this.saveActiveMatchToStorage();
+        UI.renderSafariModal();
+
+        if (this.state.mode === 'online') OnlineManager.broadcastGameState(this.state);
+        if (player.isAI && (this.state.mode !== 'online' || OnlineManager.isHost)) {
+            this.safariAiTimerId = setTimeout(() => {
+                this.safariAiTimerId = null;
+                this.runAISafariTurn(player);
+            }, 950);
+        }
+    };
+
+    GameController.selectSafariWild = function(wIdx) {
+        const saf = this.state?.safariState;
+        if (!saf) return;
+        const activeIdx = saf.turnOrder[saf.currentStep];
+        const activePlayer = this.state.players[activeIdx];
+        // Bloquear estrictamente si el turno actual es de un Bot IA o de otro jugador online
+        if (!activePlayer || activePlayer.isAI || !this.requireLocalControl(activeIdx)) return;
+        if (saf.wildSlots[wIdx]?.capturedBy || this.safariTemp.awaitingGoldenBerry || this.safariTemp.isRollingCoins) return;
+
+        AudioEngine.sfxClick();
+        this.safariTemp.selectedWildIndex = wIdx;
+        UI.renderSafariModal();
+    };
+
+    GameController.selectSafariBall = function(bIdx) {
+        const saf = this.state?.safariState;
+        if (!saf) return;
+        const activeIdx = saf.turnOrder[saf.currentStep];
+        const activePlayer = this.state.players[activeIdx];
+        // Bloquear estrictamente si el turno actual es de un Bot IA o de otro jugador online
+        if (!activePlayer || activePlayer.isAI || !this.requireLocalControl(activeIdx)) return;
+        if (this.safariTemp.awaitingGoldenBerry || this.safariTemp.isRollingCoins) return;
+
+        AudioEngine.sfxClick();
+        this.safariTemp.selectedTrayBallIndex = bIdx;
+        UI.renderSafariModal();
+    };
+
+    GameController.useSafariHandItem = function(handIdx, fromAI = false) {
+        const saf = this.state?.safariState;
+        if (!saf) return;
+        const activeIdx = saf.turnOrder[saf.currentStep];
+        const player = this.state.players[activeIdx];
+        if (!player) return;
+
+        // Bloquear que el jugador humano active cartas de un Bot IA
+        if (player.isAI && !fromAI) return;
+        if (!player.isAI && !this.requireLocalControl(activeIdx)) return;
+
+        const card = player.hand[handIdx];
+        if (!card) {
+            if (fromAI) this.completeSafariCaptureAttempt(false);
+            return;
+        }
+
+        const wildSlot = saf.wildSlots[this.safariTemp.selectedWildIndex];
+        if (!wildSlot || wildSlot.capturedBy) {
+            if (fromAI) this.completeSafariCaptureAttempt(false);
+            return;
+        }
+
+        if (card.id === 'repelente') {
+            if (wildSlot.pokemon.rarity !== 'Común') {
+                if (!fromAI) UI.showAlert('Repelente', 'El Repelente normal solo puede usarse sobre un Pokémon Común (Gris).', '⚠️');
+                return;
+            }
+            this.consumeHandCard(player, handIdx);
+            const skipped = [wildSlot.pokemon];
+            let replacement = null;
+            while (this.state.pokemonDeck.length > 0) {
+                const candidate = this.state.pokemonDeck.shift();
+                if (candidate.rarity === 'Poco Común' || candidate.rarity === 'Rara') {
+                    replacement = candidate;
+                    break;
+                } else {
+                    skipped.push(candidate);
+                }
+            }
+            this.state.pokemonDeck.push(...skipped);
+            if (replacement) wildSlot.pokemon = replacement;
+            this.addLog(`🧴 ${player.name} usa Repelente y aparece ¡${wildSlot.pokemon.name} (${wildSlot.pokemon.rarity})!`, 'text-emerald-300');
+            if (this.state.mode === 'online') OnlineManager.broadcastGameState(this.state);
+            UI.renderSafariModal();
+        } else if (card.id === 'superrepelente') {
+            this.consumeHandCard(player, handIdx);
+            const skipped = [wildSlot.pokemon];
+            let replacement = null;
+            while (this.state.pokemonDeck.length > 0) {
+                const candidate = this.state.pokemonDeck.shift();
+                if (candidate.rarityRank >= 3) {
+                    replacement = candidate;
+                    break;
+                } else {
+                    skipped.push(candidate);
+                }
+            }
+            this.state.pokemonDeck.push(...skipped);
+            if (replacement) wildSlot.pokemon = replacement;
+            this.addLog(`✨ ${player.name} usa Superrepelente y aparece ¡${wildSlot.pokemon.name} (${wildSlot.pokemon.rarity})!`, 'text-emerald-300');
+            if (this.state.mode === 'online') OnlineManager.broadcastGameState(this.state);
+            UI.renderSafariModal();
+        } else if (card.id === 'captura_critica') {
+            this.consumeHandCard(player, handIdx);
+            this.safariTemp.criticalActive = true;
+            this.addLog(`🎯 ${player.name} activa Captura Crítica: el requisito se reduce a 1 sola Cara.`, 'text-cyan-300');
+            if (this.state.mode === 'online') OnlineManager.broadcastGameState(this.state);
+            UI.renderSafariModal();
+        } else if (card.id === 'baya_dorada' && (this.safariTemp.awaitingGoldenBerry || fromAI)) {
+            this.consumeHandCard(player, handIdx);
+            if (Array.isArray(this.safariTemp.lastRollCoins)) {
+                const falseIdx = this.safariTemp.lastRollCoins.findIndex(v => !v);
+                if (falseIdx >= 0) this.safariTemp.lastRollCoins[falseIdx] = true;
+            }
+            this.safariTemp.awaitingGoldenBerry = false;
+            this.addLog(`🍋 ¡${player.name} usa Baya Dorada y convierte 1 Cruz en Cara para asegurar la captura!`, 'text-yellow-300 font-bold');
+            this.completeSafariCaptureAttempt(true);
+        }
+    };
+
+    GameController.launchSafariCaptureAttempt = function(fromAI = false) {
+        const saf = this.state?.safariState;
+        if (!saf) return;
+        const activeIdx = saf.turnOrder[saf.currentStep];
+        const player = this.state.players[activeIdx];
+        if (!player) return;
+
+        // Bloquear disparos manuales si es turno de Bot IA, y en Online solo el Host ejecuta al Bot
+        if (player.isAI && !fromAI) return;
+        if (player.isAI && this.state.mode === 'online' && !OnlineManager.isHost) return;
+        if (!player.isAI && !this.requireLocalControl(activeIdx)) return;
+
+        const wildSlot = saf.wildSlots[this.safariTemp.selectedWildIndex];
+        const ball = player.tray[this.safariTemp.selectedTrayBallIndex];
+
+        if (!wildSlot || wildSlot.capturedBy || !ball) {
+            saf.currentStep++;
+            this.advanceSafariTurn();
+            return;
+        }
+        if (this.safariTemp.isRollingCoins) return;
+
+        const matrixEntry = CAPTURE_MATRIX[ball.rarity]?.[wildSlot.pokemon.rarity];
+        if (!matrixEntry) {
+            saf.currentStep++;
+            this.advanceSafariTurn();
+            return;
+        }
+
+        let reqHeads = matrixEntry.heads;
+        if (this.safariTemp.criticalActive && reqHeads > 1) reqHeads = 1;
+
+        if (reqHeads === 0) {
+            this.safariTemp.lastRollCoins = [true, true, true];
+            this.completeSafariCaptureAttempt(true);
+            return;
+        }
+
+        this.safariTemp.isRollingCoins = true;
+        const finalCoins = [
+            Math.random() < 0.5,
+            Math.random() < 0.5,
+            Math.random() < 0.5
+        ];
+
+        this.safariTemp.lastRollCoins = ['SPIN', 'SPIN', 'SPIN'];
+        AudioEngine.sfxCoin();
+        UI.renderSafariModal();
+
+        setTimeout(() => {
+            if (!this.state?.safariState) return;
+            AudioEngine.playVoice(finalCoins[0] ? 987.77 : 311.13, 95, 'square', 0.05);
+            this.safariTemp.lastRollCoins = [finalCoins[0], 'SPIN', 'SPIN'];
+            UI.renderSafariModal();
+        }, 380);
+
+        setTimeout(() => {
+            if (!this.state?.safariState) return;
+            AudioEngine.playVoice(finalCoins[1] ? 1046.50 : 293.66, 95, 'square', 0.05);
+            this.safariTemp.lastRollCoins = [finalCoins[0], finalCoins[1], 'SPIN'];
+            UI.renderSafariModal();
+        }, 760);
+
+        setTimeout(() => {
+            if (!this.state?.safariState) return;
+            AudioEngine.playVoice(finalCoins[2] ? 1318.51 : 261.63, 120, 'square', 0.06);
+            this.safariTemp.lastRollCoins = finalCoins;
+            this.safariTemp.isRollingCoins = false;
+            UI.renderSafariModal();
+
+            const headsCount = finalCoins.filter(c => c === true).length;
+            if (headsCount >= reqHeads) {
+                this.completeSafariCaptureAttempt(true);
+            } else {
+                const bIdx = player.hand.findIndex(c => c.id === 'baya_dorada');
+                const hasGoldenBerry = bIdx >= 0;
+                if (headsCount === reqHeads - 1 && hasGoldenBerry) {
+                    this.safariTemp.awaitingGoldenBerry = true;
+                    if (player.isAI) {
+                        // El Bot activa su Baya Dorada automáticamente con flag fromAI=true
+                        this.useSafariHandItem(bIdx, true);
+                    } else {
+                        UI.renderSafariModal();
+                    }
+                } else {
+                    this.completeSafariCaptureAttempt(false);
+                }
+            }
+        }, 1140);
+    };
+
+    GameController.runAISafariTurn = function(aiPlayer) {
+        const saf = this.state?.safariState;
+        if (!saf) return;
+        const activeIdx = saf.turnOrder[saf.currentStep];
+        if (activeIdx !== aiPlayer.idx) return;
+
+        if (!aiPlayer.tray || aiPlayer.tray.length === 0) {
+            this.skipSafariTurnNoBalls();
+            return;
+        }
+
+        let bestWIdx = saf.wildSlots.findIndex(w => !w.capturedBy);
+        if (bestWIdx === -1) {
+            this.finishSafariPhase();
+            return;
+        }
+
+        let bestBIdx = 0;
+        let bestScore = -999;
+
+        saf.wildSlots.forEach((w, wIdx) => {
+            if (w.capturedBy) return;
+            aiPlayer.tray.forEach((b, bIdx) => {
+                if (b.typeId === 'pesoball' && aiPlayer.tray.length > 1) return;
+                const mat = CAPTURE_MATRIX[b.rarity]?.[w.pokemon.rarity];
+                if (!mat) return;
+                const prob = mat.heads === 0 ? 1.0 : (mat.heads === 1 ? 0.875 : (mat.heads === 2 ? 0.5 : 0.125));
+                const expected = mat.pv * prob - (b.typeId === 'rocketball' ? 2 : 0);
+                if (expected > bestScore) {
+                    bestScore = expected;
+                    bestWIdx = wIdx;
+                    bestBIdx = bIdx;
+                }
+            });
+        });
+
+        this.safariTemp.selectedWildIndex = bestWIdx;
+        this.safariTemp.selectedTrayBallIndex = bestBIdx;
+        UI.renderSafariModal();
+        this.launchSafariCaptureAttempt(true);
+    };
+
+    // 6. Renderizado de Safari con bloqueo visual durante turno de Bot IA y Cartas de Mano con texto resumido
+    UI.renderSafariModal = function() {
+        const st = GameController.state;
+        const saf = st?.safariState;
+        if (!saf) return;
+
+        const activeIdx = saf.turnOrder[saf.currentStep];
+        const player = st.players[activeIdx];
+        if (!player) return;
+
+        const isAiTurn = !!player.isAI;
+        const canHumanInteract = !isAiTurn && GameController.canLocalControl(activeIdx) && !GameController.safariTemp.isRollingCoins;
+
+        document.getElementById('safariPhaseTitle').textContent = `TURNO DE CAPTURA DE ${player.name.toUpperCase()}`;
+        document.getElementById('safariTurnSubtitle').textContent = isAiTurn
+            ? `🤖 ${player.name} (IA) está ejecutando su turno de captura...`
+            : `Turno ${saf.currentStep + 1} de ${saf.turnOrder.length} (Orden iniciado por el Ticket Safari)`;
+
+        const selectedBall = player.tray[GameController.safariTemp.selectedTrayBallIndex];
+
+        const wildGrid = document.getElementById('safariWildPokemonGrid');
+        wildGrid.innerHTML = saf.wildSlots.map((slot, wIdx) => {
+            const pk = slot.pokemon;
+            const isSelected = GameController.safariTemp.selectedWildIndex === wIdx && !slot.capturedBy;
+            const seatOwner = st.players[slot.ownerSeatIdx]?.name || `Asiento ${wIdx + 1}`;
+            const matPreview = selectedBall ? CAPTURE_MATRIX[selectedBall.rarity]?.[pk.rarity] : null;
+            const clickAttr = (canHumanInteract && !slot.capturedBy && !GameController.safariTemp.awaitingGoldenBerry)
+                ? `onclick="GameController.selectSafariWild(${wIdx})"`
+                : '';
+
+            return `
+            <div ${clickAttr}
+                 class="${clickAttr ? 'cursor-pointer' : 'cursor-default'} rounded-xl p-3 border-2 transition flex flex-col justify-between ${slot.capturedBy ? 'border-slate-800 bg-slate-950 opacity-45' : (isSelected ? 'border-yellow-400 bg-emerald-950/40 shadow-lg' : 'border-slate-700 bg-slate-950')}">
+                <div>
+                    <div class="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                        <span>Frente a: <strong>${escapeHTML(seatOwner)}</strong></span>
+                        <span class="px-1.5 py-0.5 rounded font-bold" style="background:${pk.badgeHex}33; color:${pk.badgeHex}">${pk.rarity} (${pk.region})</span>
+                    </div>
+                    <div class="font-pixel text-xs text-white text-center my-1">${pk.idStr} ${escapeHTML(pk.name)}</div>
+                    <div class="flex justify-center my-1.5 bg-slate-900 rounded-lg py-2 border border-slate-800">
+                        <img src="${pk.spriteUrl}" class="w-16 h-16 object-contain animate-float" alt="${escapeHTML(pk.name)}">
+                    </div>
+                    <div class="card-rich-desc mt-1">${pk.flavor}</div>
+                    ${matPreview && !slot.capturedBy ? `
+                        <div class="mt-2 bg-slate-900/90 border border-slate-700 rounded px-2 py-1 text-[11px] flex justify-between items-center">
+                            <span class="text-slate-300">Con ${escapeHTML(selectedBall.name)}:</span>
+                            <span class="font-bold text-yellow-300">${matPreview.heads === 0 ? 'AUTO' : matPreview.heads + ' Cara(s)'} (+${matPreview.pv} PV)</span>
+                        </div>
+                    ` : ''}
+                </div>
+                <div class="mt-2 pt-1.5 border-t border-slate-800 text-center text-[10px] font-bold ${slot.capturedBy ? 'text-emerald-400' : 'text-yellow-300'}">
+                    ${slot.capturedBy ? `✓ Capturado por ${escapeHTML(slot.capturedBy)}` : (isSelected ? '🎯 OBJETIVO APUNTADO' : (canHumanInteract ? 'Clic para apuntar' : 'En espera'))}
+                </div>
+            </div>`;
+        }).join('');
+
+        // No mostrar ni permitir pulsar cartas de la mano de un Bot IA
+        const safariItemsBar = document.getElementById('safariItemsBar');
+        if (isAiTurn) {
+            safariItemsBar.innerHTML = `<span class="text-[11px] text-cyan-300 italic"><i class="fas fa-lock mr-1"></i>Mano oculta del Bot IA</span>`;
+        } else if (!GameController.canLocalControl(activeIdx) && st.mode === 'online') {
+            safariItemsBar.innerHTML = `<span class="text-[11px] text-slate-500 italic">Mano privada del entrenador activo.</span>`;
+        } else {
+            const safariCards = player.hand
+                .map((c, hIdx) => ({ c, hIdx }))
+                .filter(item => item.c.timing === 'safari' || (item.c.timing === 'safari_reaction' && GameController.safariTemp.awaitingGoldenBerry));
+            safariItemsBar.innerHTML = safariCards.map(({ c, hIdx }) => `
+                <button onclick="GameController.useSafariHandItem(${hIdx})"
+                        title="${escapeHTML(c.desc)}"
+                        class="bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg border border-emerald-400">
+                    <i class="fas ${c.icon} mr-1"></i> Usar ${escapeHTML(c.name)}
+                </button>
+            `).join('');
+        }
+
+        const ballsSel = document.getElementById('safariBallsSelector');
+        if (player.tray.length === 0) {
+            ballsSel.innerHTML = `<div class="text-xs text-amber-400 py-2">Sin Pokéballs libres en la bandeja para esta Fase de Safari.</div>`;
+        } else {
+            ballsSel.innerHTML = player.tray.map((b, bIdx) => {
+                const isSel = GameController.safariTemp.selectedTrayBallIndex === bIdx;
+                const ballClickAttr = (canHumanInteract && !GameController.safariTemp.awaitingGoldenBerry)
+                    ? `onclick="GameController.selectSafariBall(${bIdx})"`
+                    : '';
+                return `
+                <div ${ballClickAttr}
+                     class="${ballClickAttr ? 'cursor-pointer' : 'cursor-default opacity-80'} p-2.5 rounded-xl border-2 min-w-[95px] flex flex-col items-center ${isSel ? 'border-cyan-400 bg-cyan-500/20' : 'border-slate-700 bg-slate-900'}">
+                    ${ArtRenderer.renderBallSVG(b.typeId, 36)}
+                    <span class="font-bold text-xs text-white mt-1">${escapeHTML(b.name)}</span>
+                    <span class="text-[10px] text-slate-400">${b.rarity}</span>
+                </div>`;
+            }).join('');
+        }
+
+        const reqTextEl = document.getElementById('safariRequirementText');
+        const coinsDisplay = document.getElementById('safariCoinsDisplay');
+        const actionsEl = document.getElementById('safariActionButtons');
+        const selectedWild = saf.wildSlots[GameController.safariTemp.selectedWildIndex];
+
+        if (st.mode === 'online' && !GameController.canLocalControl(activeIdx) && !player.isAI) {
+            reqTextEl.innerHTML = 'Esperando la jugada del entrenador activo.';
+            coinsDisplay.innerHTML = '';
+            actionsEl.innerHTML = '<span class="text-xs text-amber-300">🔒 Turno privado de otro jugador.</span>';
+            return;
+        }
+
+        if (player.tray.length === 0) {
+            reqTextEl.innerHTML = `Sin Pokéballs libres disponibles.`;
+            coinsDisplay.innerHTML = '';
+            actionsEl.innerHTML = (!player.isAI && GameController.canLocalControl(activeIdx)) ? `
+                <button onclick="GameController.skipSafariTurnNoBalls()" class="pixel-btn bg-slate-700 text-white text-xs px-4 py-2">
+                    PASAR TURNO SAFARI
+                </button>` : '';
+            return;
+        }
+
+        if (selectedWild && !selectedWild.capturedBy && selectedBall) {
+            const mat = CAPTURE_MATRIX[selectedBall.rarity][selectedWild.pokemon.rarity];
+            let headsNeeded = mat.heads;
+            if (GameController.safariTemp.criticalActive && headsNeeded > 1) headsNeeded = 1;
+
+            reqTextEl.innerHTML = `
+                <div>Lanzar <strong>${escapeHTML(selectedBall.name)}</strong> (${selectedBall.rarity}) contra <strong>${escapeHTML(selectedWild.pokemon.name)}</strong> (${selectedWild.pokemon.rarity}):</div>
+                <div class="text-sm font-bold text-yellow-300 mt-0.5">
+                    Requisito: ${headsNeeded === 0 ? '¡CAPTURA AUTOMÁTICA (AUTO)!' : `Obtener al menos ${headsNeeded} CARA(S) en 3 monedas`} • Recompensa: <span class="text-emerald-400">+${mat.pv} PV</span>
+                </div>`;
+
+            const coins = GameController.safariTemp.lastRollCoins;
+            if (coins) {
+                coinsDisplay.innerHTML = coins.map(val => {
+                    if (val === 'SPIN') {
+                        return `<div class="animate-coin w-12 h-12 rounded-full border-2 border-yellow-400 bg-amber-500/30 text-yellow-200 flex items-center justify-center font-pixel text-xs shadow-lg">🪙</div>`;
+                    }
+                    return `
+                    <div class="animate-coin w-12 h-12 rounded-full border-2 flex items-center justify-center font-pixel text-[10px] shadow-lg ${val ? 'bg-yellow-500 text-slate-950 border-yellow-200' : 'bg-slate-800 text-red-400 border-red-500'}">
+                        ${val ? 'CARA' : 'CRUZ'}
+                    </div>`;
+                }).join('');
+            } else {
+                coinsDisplay.innerHTML = [1, 2, 3].map(() => `
+                    <div class="w-10 h-10 rounded-full border border-slate-700 bg-slate-950 flex items-center justify-center text-xs text-slate-500">P¥</div>
+                `).join('');
+            }
+
+            if (player.isAI) {
+                actionsEl.innerHTML = `<span class="text-xs text-cyan-300 font-pixel animate-pulse">🤖 Resolviendo captura IA...</span>`;
+            } else if (GameController.safariTemp.awaitingGoldenBerry) {
+                actionsEl.innerHTML = `
+                    <button onclick="GameController.safariTemp.awaitingGoldenBerry = false; GameController.completeSafariCaptureAttempt(false)"
+                            class="pixel-btn bg-slate-700 text-white text-[10px] px-3 py-2">
+                        NO USAR BAYA (FALLAR)
+                    </button>`;
+            } else if (!coins) {
+                actionsEl.innerHTML = `
+                    <button onclick="GameController.launchSafariCaptureAttempt(false)"
+                            class="pixel-btn bg-emerald-600 hover:bg-emerald-500 text-white text-xs px-4 py-2.5">
+                        ¡LANZAR POKÉBALL!
+                    </button>
+                    <button onclick="GameController.passSafariTurnVoluntarily()"
+                            class="pixel-btn bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs px-3.5 py-2.5">
+                        PASAR SIN CAPTURAR
+                    </button>`;
+            } else {
+                actionsEl.innerHTML = '';
+            }
+        }
+    };
+
+    // Envolver renderActivePlayerBoard para mostrar la descripción resumida en las cartas de la mano
+    const origRenderActivePlayerBoard = UI.renderActivePlayerBoard.bind(UI);
+    UI.renderActivePlayerBoard = function() {
+        origRenderActivePlayerBoard();
+        const st = GameController.state;
+        if (!st) return;
+        const p = st.players[GameController.viewedPlayerIdx];
+        if (!p || p.hand.length === 0) return;
+
+        const isCurrentTurnPlayer = (st.turnPlayerIdx === p.idx && !p.isAI && GameController.canLocalControl(p.idx));
+        const handEl = document.getElementById('playerHandContainer');
+        if (!handEl) return;
+
+        const totalCards = p.hand.length;
+        handEl.innerHTML = p.hand.map((c, hIdx) => {
+            const isTrap = c.subtype === 'Trampa';
+            const offsetFromCenter = hIdx - (totalCards - 1) / 2;
+            const rotAngle = offsetFromCenter * 5;
+            const translateY = Math.abs(offsetFromCenter) * 6;
+            const summaryText = c.shortDesc || SHORT_CARD_DESCRIPTIONS[c.id] || c.desc;
+
+            return `
+            <div class="tcg-card ${isTrap ? 'card-trap animate-draw-card' : 'animate-draw-card'}"
+                 style="transform: rotate(${rotAngle}deg) translateY(${translateY}px);">
+                <div>
+                    <div class="flex items-center justify-between gap-1 mb-1">
+                        <span class="text-[8px] font-bold px-1.5 py-0.5 rounded ${isTrap ? 'bg-red-950 text-red-300 border border-red-700' : 'bg-cyan-950 text-cyan-300 border border-cyan-700'}">
+                            <i class="fas ${c.icon} mr-0.5"></i>${c.subtype.toUpperCase()}
+                        </span>
+                        <div class="flex items-center gap-1">
+                            <button onclick="UI.inspectEffectCard('${c.id}')" class="text-cyan-300 hover:text-yellow-300 text-xs" title="Ver explicación completa">
+                                <i class="fas fa-magnifying-glass-plus"></i>
+                            </button>
+                            ${isCurrentTurnPlayer ? `
+                                <button onclick="GameController.discardCardFromHand(${hIdx})" class="text-slate-500 hover:text-red-400 text-xs" title="Descartar">
+                                    <i class="fas fa-trash-can"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+                    <div onclick="UI.inspectEffectCard('${c.id}')" class="font-bold text-[11px] text-white mb-1 leading-tight hover:text-yellow-300">${escapeHTML(c.name)}</div>
+                    <div onclick="UI.inspectEffectCard('${c.id}')" class="text-[10px] text-slate-200 leading-snug">${formatCardText(summaryText)}</div>
+                </div>
+                ${isCurrentTurnPlayer ? `
+                    <button onclick="GameController.playObjectCard(${hIdx})"
+                            class="pixel-btn bg-cyan-600 hover:bg-cyan-500 text-white font-pixel text-[8px] py-1.5 px-1 rounded w-full shadow mt-1">
+                        USAR
+                    </button>
+                ` : ''}
+            </div>`;
+        }).join('');
+    };
+
+    // Envolver syncAndRender y finishGameAndShowScoreboard para gestionar el autoguardado de partida
+    const origSyncAndRender = GameController.syncAndRender.bind(GameController);
+    GameController.syncAndRender = function() {
+        origSyncAndRender();
+        this.saveActiveMatchToStorage();
+        const btnAbandon = document.getElementById('btnAbandonMatch');
+        if (btnAbandon) {
+            btnAbandon.classList.toggle('hidden', !this.state || this.state.gameOver);
+            btnAbandon.classList.toggle('flex', !!(this.state && !this.state.gameOver));
+        }
+    };
+
+    const origFinish = GameController.finishGameAndShowScoreboard.bind(GameController);
+    GameController.finishGameAndShowScoreboard = function() {
+        this.clearSavedMatchStorage();
+        origFinish();
+    };
+
+    // Restaurar automáticamente partida activa y nombre de jugador al cargar/refrescar la página
+    GameController.tryRestoreSavedMatch = function() {
+        try {
+            const raw = localStorage.getItem(ACTIVE_MATCH_KEY);
+            if (!raw) return;
+            const saved = JSON.parse(raw);
+            if (!saved || !saved.state || saved.state.gameOver) {
+                this.clearSavedMatchStorage();
+                return;
+            }
+
+            this.state = saved.state;
+            this.viewedPlayerIdx = saved.viewedPlayerIdx ?? 0;
+            if (saved.draftState) this.draftState = saved.draftState;
+
+            document.getElementById('screenLobby')?.classList.add('hidden');
+            document.getElementById('screenGame')?.classList.remove('hidden');
+            const topStatus = document.getElementById('topGameStatus');
+            topStatus?.classList.remove('hidden');
+            topStatus?.classList.add('flex');
+            const btnAbandon = document.getElementById('btnAbandonMatch');
+            btnAbandon?.classList.remove('hidden');
+            btnAbandon?.classList.add('flex');
+
+            AudioEngine.setTrack(this.state.safariState ? 2 : 1);
+            UI.renderAll();
+
+            // Si estaba en mitad del Setup Inicial (Draft)
+            const pendingDraft = this.state.players.some(p => !p.draftConfirmed);
+            if (pendingDraft) {
+                if (this.state.mode === 'online') {
+                    this.openOnlineSimultaneousDraftForLocalPlayer();
+                } else if (this.draftState?.offeredObjectives?.length > 0) {
+                    const p = this.state.players[this.draftState.currentDraftPlayerIdx];
+                    if (p) document.getElementById('draftModalTitle').textContent = `SETUP INICIAL: ${p.name.toUpperCase()}`;
+                    this.renderDraftModalChoices();
+                    UI.openModal('modalDraftSetup');
+                }
+                return;
+            }
+
+            // Si estaba en Fase de Safari
+            if (this.state.safariState) {
+                this.safariTemp.isRollingCoins = false;
+                UI.openModal('modalSafari');
+                this.advanceSafariTurn();
+                return;
+            }
+
+            // Si era el turno de un Bot IA en el tablero normal, reanudar su jugada
+            const activePlayer = this.state.players[this.state.turnPlayerIdx];
+            if (activePlayer?.isAI && (this.state.mode !== 'online' || OnlineManager.isHost)) {
+                setTimeout(() => this.runAITurn(activePlayer), 800);
+            }
+        } catch (e) {
+            console.warn('[Persistence] Error restaurando partida:', e);
+        }
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+        deduplicateLeaderboardMenuButton();
+        restoreTrainerName();
+
+        const nickInput = document.getElementById('inputPlayerName');
+        nickInput?.addEventListener('input', e => {
+            saveTrainerName(e.target.value);
+        });
+
+        // Aplicar fuente Arcade 8-Bit si no hay preferencia previa
+        SettingsManager.applyAll(true);
+        SettingsManager.renderSettingsModalControls();
+
+        // Restaurar partida si el usuario refrescó la página
+        GameController.tryRestoreSavedMatch();
+    });
+})();
+// ============================================================================
+// 20. ACTUALIZACIÓN v2.18 (CORREGIDA): BANDEJAS SIN SCROLL, DRAG & DROP FLUIDO,
+//     POKÉBALL CAPTURADA SIN RECUADRO, MAZOS GRANDES Y ANUNCIOS CENTRALES
+// ============================================================================
+(function applyV218TabletopUpgrades() {
+    // 1. Estilos CSS para Drag & Drop sin interferencias, mazos grandes y letreros centrales
+    const style = document.createElement('style');
+    style.textContent = `
+        /* Garantizar que las Pokéballs de la bandeja siempre se puedan arrastrar */
+        .ball-slot-draggable[draggable="true"] {
+            -webkit-user-drag: element !important;
+            user-drag: element !important;
+            user-select: none !important;
+            cursor: grab !important;
+        }
+        .ball-slot-draggable[draggable="true"]:active {
+            cursor: grabbing !important;
+        }
+        /* Evitar que los hijos internos bloqueen el inicio del arrastre o disparen dragleave */
+        .ball-slot-draggable .ball-inner-noninteractive {
+            pointer-events: none !important;
+        }
+        body.is-dragging-tray-ball .ball-slot-draggable * {
+            pointer-events: none !important;
+        }
+
+        /* Mazos físicos más grandes y con grosor 3D realista */
+        .physical-deck {
+            width: 114px !important;
+            height: 156px !important;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), filter 0.22s ease;
+            user-select: none;
+        }
+        .physical-deck:hover {
+            transform: translateY(-8px) scale(1.05) !important;
+            filter: brightness(1.12);
+        }
+        .physical-deck-card {
+            border-radius: 14px !important;
+            border-width: 2.5px !important;
+            box-shadow:
+                0 3px 0 #475569,
+                0 6px 0 #334155,
+                0 9px 0 #1e293b,
+                0 12px 0 #0f172a,
+                0 18px 28px rgba(0,0,0,0.85) !important;
+        }
+        .physical-deck.deck-drawing-pulse {
+            animation: deckPulsePop 0.38s ease-out;
+        }
+        @keyframes deckPulsePop {
+            0% { transform: scale(1); }
+            45% { transform: scale(1.12) translateY(-6px); filter: brightness(1.3); }
+            100% { transform: scale(1); }
+        }
+
+        /* Animación de carta volando desde el mazo */
+        @keyframes flyCardFromDeckToHand {
+            0% {
+                transform: translate(0, 0) scale(0.75) rotateY(0deg) rotateZ(-8deg);
+                opacity: 1;
+            }
+            45% {
+                transform: translate(-110px, 45px) scale(1.08) rotateY(90deg) rotateZ(4deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-220px, 160px) scale(0.85) rotateY(180deg) rotateZ(0deg);
+                opacity: 0;
+            }
+        }
+        @keyframes flipTrapOnDeck3D {
+            0% {
+                transform: translate(0, 0) scale(0.8) rotateY(0deg);
+                opacity: 1;
+            }
+            35% {
+                transform: translate(-80px, -25px) scale(1.35) rotateY(90deg);
+                filter: brightness(1.6);
+                opacity: 1;
+            }
+            75% {
+                transform: translate(-120px, -25px) scale(1.42) rotateY(180deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-120px, -10px) scale(1.1) rotateY(180deg);
+                opacity: 0;
+            }
+        }
+        .flying-deck-card {
+            position: fixed;
+            width: 112px;
+            height: 152px;
+            border-radius: 12px;
+            pointer-events: none;
+            z-index: 9400;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 8px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.85);
+        }
+
+        /* Banners gigantes en el centro de la pantalla (TU TURNO / RONDA X) */
+        @keyframes centerBannerInOut {
+            0% {
+                opacity: 0;
+                transform: scale(0.65) translateY(24px);
+                filter: blur(4px);
+            }
+            18% {
+                opacity: 1;
+                transform: scale(1.05) translateY(0);
+                filter: blur(0px);
+            }
+            28% {
+                transform: scale(1) translateY(0);
+            }
+            78% {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+            100% {
+                opacity: 0;
+                transform: scale(1.12) translateY(-18px);
+            }
+        }
+        .center-screen-banner-card {
+            animation: centerBannerInOut var(--banner-dur, 1800ms) cubic-bezier(0.22, 1, 0.36, 1) forwards;
+            background: radial-gradient(ellipse at center, rgba(15, 23, 42, 0.96) 0%, rgba(9, 13, 22, 0.92) 100%);
+            border-top: 3px solid #facc15;
+            border-bottom: 3px solid #facc15;
+            box-shadow: 0 25px 60px rgba(0,0,0,0.9), 0 0 40px rgba(250, 204, 21, 0.3);
+        }
+
+        /* Cuadrículas multi-fila sin scroll horizontal para Bandeja de Balls y Capturados */
+        #playerCapsuleStand {
+            display: grid !important;
+            grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)) !important;
+            gap: 8px !important;
+            overflow-x: hidden !important;
+            overflow-y: auto !important;
+            max-height: 240px;
+            align-items: stretch !important;
+        }
+        #playerTrophyRow {
+            display: grid !important;
+            grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)) !important;
+            gap: 8px !important;
+            overflow-x: hidden !important;
+            overflow-y: auto !important;
+            max-height: 240px;
+            align-items: stretch !important;
+        }
+    `;
+    document.head.appendChild(style);
+
+    // 2. Reparar los manejadores de Drag & Drop de la bandeja para que funcionen siempre sin fallos
+    GameController.onTrayDragStart = function(event, idx) {
+        this.dragSourceTrayIdx = idx;
+        document.body.classList.add('is-dragging-tray-ball');
+        if (event.dataTransfer) {
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', String(idx));
+        }
+        event.currentTarget.classList.add('dragging');
+    };
+
+    GameController.onTrayDragOver = function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+        event.currentTarget.classList.add('drag-over');
+    };
+
+    GameController.onTrayDragLeave = function(event) {
+        // Evitar que dragleave se dispare por error al pasar por encima de un elemento hijo
+        if (event.relatedTarget && event.currentTarget.contains(event.relatedTarget)) return;
+        event.currentTarget.classList.remove('drag-over');
+    };
+
+    GameController.onTrayDragEnd = function(event) {
+        document.body.classList.remove('is-dragging-tray-ball');
+        if (event.currentTarget) event.currentTarget.classList.remove('dragging');
+        document.querySelectorAll('.ball-slot-draggable').forEach(el => el.classList.remove('drag-over', 'dragging'));
+    };
+
+    GameController.onTrayDrop = function(event, targetIdx) {
+        event.preventDefault();
+        event.stopPropagation();
+        document.body.classList.remove('is-dragging-tray-ball');
+        document.querySelectorAll('.ball-slot-draggable').forEach(el => el.classList.remove('drag-over', 'dragging'));
+
+        const rawTransfer = event.dataTransfer?.getData('text/plain');
+        const fromIdx = (this.dragSourceTrayIdx !== null && this.dragSourceTrayIdx !== undefined)
+            ? this.dragSourceTrayIdx
+            : parseInt(rawTransfer || '-1', 10);
+
+        this.dragSourceTrayIdx = null;
+        if (isNaN(fromIdx) || fromIdx < 0 || fromIdx === targetIdx) return;
+
+        const player = this.state?.players?.[this.viewedPlayerIdx];
+        if (!player || player.isAI || !this.isLocalPlayer(player.idx)) return;
+        if (fromIdx >= player.tray.length) return;
+
+        const clampedTarget = Math.max(0, Math.min(player.tray.length - 1, targetIdx));
+        if (fromIdx === clampedTarget) return;
+
+        const [movedBall] = player.tray.splice(fromIdx, 1);
+        player.tray.splice(clampedTarget, 0, movedBall);
+
+        AudioEngine.sfxSwap();
+        this.syncAndRender();
+    };
+
+    GameController.moveTrayBallStep = function(fromIdx, delta) {
+        const player = this.state?.players?.[this.viewedPlayerIdx];
+        if (!player || player.isAI || !this.isLocalPlayer(player.idx)) return;
+        const targetIdx = fromIdx + delta;
+        if (targetIdx < 0 || targetIdx >= player.tray.length) return;
+
+        const temp = player.tray[fromIdx];
+        player.tray[fromIdx] = player.tray[targetIdx];
+        player.tray[targetIdx] = temp;
+
+        AudioEngine.sfxSwap();
+        this.syncAndRender();
+    };
+
+    // 3. Ampliar la proporción de las bandejas en la mesa del jugador (8 columnas bandejas, 4 mano)
+    function upgradeBoardGridProportions() {
+        const stand = document.getElementById('playerCapsuleStand');
+        const hand = document.getElementById('playerHandContainer');
+        if (stand) {
+            const traysGridWrap = stand.closest('.lg\\:col-span-6');
+            if (traysGridWrap) {
+                traysGridWrap.classList.remove('lg:col-span-6');
+                traysGridWrap.classList.add('lg:col-span-8');
+            }
+            // Permitir soltar una Pokéball también en el espacio libre del contenedor para mandarla al final
+            stand.ondragover = (e) => {
+                e.preventDefault();
+                if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+            };
+            stand.ondrop = (e) => {
+                const p = GameController.state?.players?.[GameController.viewedPlayerIdx];
+                if (p && p.tray.length > 0) {
+                    GameController.onTrayDrop(e, p.tray.length - 1);
+                }
+            };
+        }
+        if (hand) {
+            const handColWrap = hand.closest('.lg\\:col-span-6');
+            if (handColWrap) {
+                handColWrap.classList.remove('lg:col-span-6');
+                handColWrap.classList.add('lg:col-span-4');
+            }
+        }
+        document.querySelectorAll('.physical-deck-card i').forEach(icon => {
+            icon.classList.remove('text-xl', 'text-lg');
+            icon.classList.add('text-3xl', 'mb-2');
+        });
+        document.querySelectorAll('.physical-deck-card span.font-pixel').forEach(sp => {
+            if (sp.id) {
+                sp.classList.remove('text-xs');
+                sp.classList.add('text-sm', 'px-3', 'py-1');
+            } else {
+                sp.classList.remove('text-[8px]');
+                sp.classList.add('text-[10px]');
+            }
+        });
+    }
+
+    // 4. Sistema de Carteles Gigantes en el Centro de la Pantalla (Cola secuencial)
+    UI.bannerQueue = [];
+    UI.isShowingBanner = false;
+
+    UI.enqueueCenterBanner = function(mainTitle, subtitle = '', accentColor = '#facc15', durationMs = 1750) {
+        this.bannerQueue.push({ mainTitle, subtitle, accentColor, durationMs });
+        if (!this.isShowingBanner) {
+            this.processNextCenterBanner();
+        }
+    };
+
+    UI.processNextCenterBanner = function() {
+        if (this.bannerQueue.length === 0) {
+            this.isShowingBanner = false;
+            return;
+        }
+        this.isShowingBanner = true;
+        const item = this.bannerQueue.shift();
+
+        let overlay = document.getElementById('centerBannerOverlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'centerBannerOverlay';
+            overlay.className = 'fixed inset-0 pointer-events-none flex items-center justify-center px-4';
+            overlay.style.zIndex = '9350';
+            document.body.appendChild(overlay);
+        }
+
+        overlay.innerHTML = `
+            <div class="center-screen-banner-card w-full max-w-3xl py-6 px-8 rounded-3xl text-center"
+                 style="--banner-dur: ${item.durationMs}ms; border-color: ${item.accentColor}; box-shadow: 0 25px 60px rgba(0,0,0,0.92), 0 0 45px ${item.accentColor}55;">
+                <div class="font-pixel text-xl sm:text-3xl md:text-4xl tracking-wider uppercase drop-shadow-[0_4px_8px_rgba(0,0,0,0.9)]"
+                     style="color: ${item.accentColor};">
+                    ${escapeHTML(item.mainTitle)}
+                </div>
+                ${item.subtitle ? `
+                    <div class="font-pixel text-xs sm:text-sm text-white mt-3 tracking-wide uppercase">
+                        ${escapeHTML(item.subtitle)}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+
+        setTimeout(() => {
+            if (overlay) overlay.innerHTML = '';
+            this.processNextCenterBanner();
+        }, item.durationMs + 60);
+    };
+
+    UI.showRoundAnnouncementBanner = function(roundNum, remSafariTurns) {
+        const safariText = remSafariTurns === 1
+            ? 'FASE SAFARI EN 1 TURNO'
+            : `FASE SAFARI EN ${remSafariTurns} TURNOS`;
+        this.enqueueCenterBanner(
+            `RONDA ${roundNum}. ${safariText}`,
+            '¡Preparad vuestras Pokéballs y Cartas de Efecto!',
+            '#34d399',
+            2150
+        );
+    };
+
+    UI.showYourTurnBanner = function(playerName) {
+        this.enqueueCenterBanner(
+            '¡TU TURNO!',
+            `Turno activo de ${playerName}`,
+            '#facc15',
+            1500
+        );
+    };
+
+    // 5. Animación visual de robar carta y voltear Trampa sobre el Mazo de Efectos
+    UI.drawAnimStep = 0;
+
+    UI.playDeckCardAnimation = function(card, isTrap = false) {
+        const deckEl = document.getElementById('visualEffectDeckPile');
+        if (!deckEl || document.getElementById('screenGame')?.classList.contains('hidden')) return;
+
+        deckEl.classList.remove('deck-drawing-pulse');
+        void deckEl.offsetWidth;
+        deckEl.classList.add('deck-drawing-pulse');
+
+        const rect = deckEl.getBoundingClientRect();
+        if (!rect || (rect.width === 0 && rect.height === 0)) return;
+
+        const delayMs = (this.drawAnimStep % 4) * 220;
+        this.drawAnimStep++;
+        setTimeout(() => {
+            this.drawAnimStep = Math.max(0, this.drawAnimStep - 1);
+        }, delayMs + 900);
+
+        setTimeout(() => {
+            const flyEl = document.createElement('div');
+            flyEl.className = 'flying-deck-card';
+            flyEl.style.left = `${rect.left}px`;
+            flyEl.style.top = `${rect.top}px`;
+
+            if (isTrap) {
+                flyEl.style.background = 'linear-gradient(145deg, #450a0a 0%, #0f172a 100%)';
+                flyEl.style.border = '3px solid #ef4444';
+                flyEl.style.boxShadow = '0 0 35px rgba(239, 68, 68, 0.75)';
+                flyEl.style.animation = 'flipTrapOnDeck3D 0.95s cubic-bezier(0.22, 1, 0.36, 1) forwards';
+                flyEl.innerHTML = `
+                    <div style="transform: rotateY(180deg);" class="flex flex-col items-center justify-center">
+                        <span class="text-[8px] font-pixel text-red-300 bg-red-950 px-1.5 py-0.5 rounded border border-red-500 mb-1">¡TRAMPA!</span>
+                        <i class="fas ${card.icon || 'fa-triangle-exclamation'} text-2xl text-red-400 my-1"></i>
+                        <div class="font-bold text-[10px] text-white leading-tight">${escapeHTML(card.name)}</div>
+                    </div>
+                `;
+            } else {
+                flyEl.style.background = 'radial-gradient(circle at top, #0c4a6e 0%, #0f172a 85%)';
+                flyEl.style.border = '2.5px solid #38bdf8';
+                flyEl.style.boxShadow = '0 0 25px rgba(56, 189, 248, 0.5)';
+                flyEl.style.animation = 'flyCardFromDeckToHand 0.65s cubic-bezier(0.22, 1, 0.36, 1) forwards';
+                flyEl.innerHTML = `
+                    <i class="fas fa-bolt text-cyan-400 text-2xl mb-1"></i>
+                    <span class="font-pixel text-[8px] text-cyan-200">ROBO</span>
+                `;
+            }
+
+            document.body.appendChild(flyEl);
+            setTimeout(() => flyEl.remove(), isTrap ? 980 : 680);
+        }, delayMs);
+    };
+
+    const origDrawRaw = GameController.drawOneEffectCardRaw.bind(GameController);
+    GameController.drawOneEffectCardRaw = function() {
+        const card = origDrawRaw();
+        if (card && this.state && !this.state.awaitingOnlineDraft) {
+            UI.playDeckCardAnimation(card, card.subtype === 'Trampa');
+        }
+        return card;
+    };
+
+    // 6. Enlazar inicios de ronda y de turno humano para mostrar los letreros centrales
+    GameController.lastAnnouncedRound = 0;
+
+    const origBeginTurn = GameController.beginTurn.bind(GameController);
+    GameController.beginTurn = function(playerIdx) {
+        if (!this.state || this.state.gameOver) return;
+
+        if (playerIdx === 0 && this.lastAnnouncedRound !== this.state.round) {
+            this.lastAnnouncedRound = this.state.round;
+            const remSafari = 3 - ((this.state.round - 1) % 3);
+            UI.showRoundAnnouncementBanner(this.state.round, remSafari);
+        }
+
+        const player = this.state.players[playerIdx];
+        const isHumanLocalTurn = player && !player.isAI && this.canLocalControl(playerIdx);
+        if (isHumanLocalTurn) {
+            UI.showYourTurnBanner(player.name);
+        }
+
+        origBeginTurn(playerIdx);
+    };
+
+    const origInitMatch = GameController.initializeMatchState.bind(GameController);
+    GameController.initializeMatchState = function(playersConfig, mode, fastSetupOverride = null) {
+        this.lastAnnouncedRound = 0;
+        UI.bannerQueue = [];
+        UI.isShowingBanner = false;
+        origInitMatch(playersConfig, mode, fastSetupOverride);
+        upgradeBoardGridProportions();
+    };
+
+    // 7. Renderizado multi-fila de Bandeja de Balls (con Drag & Drop activo) y Capturados (sin recuadro en la Pokéball)
+    const prevRenderBoard = UI.renderActivePlayerBoard.bind(UI);
+    UI.renderActivePlayerBoard = function() {
+        prevRenderBoard();
+        upgradeBoardGridProportions();
+
+        const st = GameController.state;
+        if (!st) return;
+        const p = st.players[GameController.viewedPlayerIdx];
+        if (!p) return;
+
+        const isCurrentTurnPlayer = (st.turnPlayerIdx === p.idx && !p.isAI && GameController.canLocalControl(p.idx));
+        // Permitir al jugador humano reordenar su propia bandeja en cualquier momento
+        const canReorderTray = (!p.isAI && GameController.isLocalPlayer(p.idx));
+
+        const standEl = document.getElementById('playerCapsuleStand');
+        if (standEl && p.tray.length > 0) {
+            standEl.innerHTML = p.tray.map((b, bIdx) => {
+                const isProtected = GameController.isBallProtectedByPeso(p, bIdx);
+                const canActivateRocket = isCurrentTurnPlayer && b.typeId === 'rocketball' && b.rocketActive;
+                return `
+                <div ${canReorderTray ? `draggable="true" ondragstart="GameController.onTrayDragStart(event, ${bIdx})" ondragover="GameController.onTrayDragOver(event)" ondragleave="GameController.onTrayDragLeave(event)" ondragend="GameController.onTrayDragEnd(event)" ondrop="GameController.onTrayDrop(event, ${bIdx})"` : ''}
+                     title="Arrastra para mover de sitio • Clic en 🔍 para ver detalles de ${escapeHTML(b.name)}"
+                     class="ball-slot-draggable bg-slate-900 border-2 ${isProtected ? 'border-blue-500 bg-blue-950/25' : 'border-slate-700'} rounded-xl p-1.5 flex flex-col items-center justify-between text-center relative">
+                    <div class="w-full flex items-center justify-between text-[8px]">
+                        <span class="ball-inner-noninteractive text-slate-400 font-bold">#${bIdx + 1}</span>
+                        ${isProtected ? '<i class="ball-inner-noninteractive fas fa-shield-alt text-blue-400" title="Protegida por Peso Ball"></i>' : ''}
+                        <button type="button" draggable="false" onclick="event.stopPropagation(); UI.inspectBall('${b.typeId}')" class="text-cyan-400 hover:text-yellow-300 px-0.5" title="Inspeccionar ${escapeHTML(b.name)}">
+                            <i class="fas fa-magnifying-glass-plus"></i>
+                        </button>
+                    </div>
+                    <div class="ball-inner-noninteractive my-0.5">
+                        ${ArtRenderer.renderBallSVG(b.typeId, 34)}
+                    </div>
+                    <div class="ball-inner-noninteractive font-bold text-[10px] text-white leading-tight truncate w-full">${escapeHTML(b.name)}</div>
+                    <div class="ball-inner-noninteractive text-[9px] text-amber-300 font-semibold">${b.pv}PV • ${b.sell}P¥</div>
+                    ${canReorderTray && p.tray.length > 1 ? `
+                        <div class="flex items-center justify-between w-full mt-1 pt-0.5 border-t border-slate-800 text-[9px]">
+                            <button type="button" draggable="false" onclick="event.stopPropagation(); GameController.moveTrayBallStep(${bIdx}, -1)" ${bIdx === 0 ? 'disabled' : ''} class="px-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-25" title="Mover a la izquierda">◀</button>
+                            <span class="ball-inner-noninteractive text-[8px] text-slate-500">⇄</span>
+                            <button type="button" draggable="false" onclick="event.stopPropagation(); GameController.moveTrayBallStep(${bIdx}, 1)" ${bIdx === p.tray.length - 1 ? 'disabled' : ''} class="px-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 disabled:opacity-25" title="Mover a la derecha">▶</button>
+                        </div>
+                    ` : ''}
+                    ${canActivateRocket ? `
+                        <button type="button" draggable="false" onclick="event.stopPropagation(); GameController.openRocketStealModal(${bIdx})"
+                                class="mt-1 bg-red-600 hover:bg-red-500 text-white text-[8px] font-bold px-1 py-0.5 rounded w-full">
+                            🚀 ROBAR
+                        </button>
+                    ` : ''}
+                </div>`;
+            }).join('');
+        }
+
+        // Renderizado de Pokémon Capturados con la Pokéball limpia (SIN recuadro ni borde alrededor)
+        const trophyEl = document.getElementById('playerTrophyRow');
+        if (trophyEl && p.captured.length > 0) {
+            trophyEl.innerHTML = p.captured.map(c => `
+                <div onclick="UI.inspectPokemon(${c.pokemon.dexNum})"
+                     title="${escapeHTML(c.pokemon.name)} (+${c.capturePV} PV • Capturado con ${escapeHTML(c.ball.name)})"
+                     class="cursor-pointer bg-slate-900 hover:bg-slate-800 border-2 border-emerald-600/60 rounded-xl p-1.5 flex flex-col items-center justify-between relative transition">
+                    <div class="w-full flex items-center justify-between text-[8px] font-bold">
+                        <span class="text-slate-400">${c.pokemon.idStr}</span>
+                        <span class="px-1 py-0.2 rounded" style="background:${c.pokemon.badgeHex}33; color:${c.pokemon.badgeHex}">${c.pokemon.rarity}</span>
+                    </div>
+                    <div class="relative my-0.5">
+                        <img src="${c.pokemon.spriteUrl}" class="w-12 h-12 object-contain" alt="${escapeHTML(c.pokemon.name)}">
+                        <div class="absolute -bottom-1 -right-1.5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.9)] pointer-events-none">
+                            ${ArtRenderer.renderBallSVG(c.ball.typeId, 20)}
+                        </div>
+                    </div>
+                    <div class="font-bold text-[10px] text-white truncate w-full text-center">${escapeHTML(c.pokemon.name)}</div>
+                    <div class="text-[9px] font-pixel text-emerald-400">+${c.capturePV} PV</div>
+                </div>
+            `).join('');
+        }
+    };
+
+    window.addEventListener('DOMContentLoaded', () => {
+        upgradeBoardGridProportions();
+    });
+})();

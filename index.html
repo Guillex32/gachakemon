@@ -18,7 +18,7 @@
             --retro-green: #22c55e;
             --retro-purple: #a855f7;
         }
-        body {
+		body {
             font-family: 'Pixelify Sans', 'Chakra Petch', sans-serif;
             background-color: #0b0f19;
             color: #f8fafc;
@@ -280,83 +280,92 @@
         }
     </style>
 </head>
-<body class="min-h-screen flex flex-col justify-between">
+<body class="min-h-screen flex flex-col justify-between font-mode-arcade_8bit">
 
-    <div id="crtLayer" class="crt-overlay"></div>
-    <div id="pokemonPlaygroundBg" class="fixed inset-0 pointer-events-none overflow-hidden z-0"></div>
+		<div id="crtLayer" class="crt-overlay"></div>
+		<div id="pokemonPlaygroundBg" class="fixed inset-0 pointer-events-none overflow-hidden z-0"></div>
 
-	<header class="bg-slate-900/95 border-b-2 border-slate-700 px-3 py-2 sticky top-0 z-40 backdrop-blur">
-        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
-            <div class="flex items-center gap-3">
-                <div id="headerLogoBall" class="w-8 h-8 flex items-center justify-center"></div>
-                <div>
-                    <h1 class="font-pixel text-xs sm:text-sm md:text-base text-yellow-400 tracking-wider flex items-center gap-2">
-                        GACHAKÉMON
-                        <span class="bg-red-600 text-white text-[9px] px-1.5 py-0.5 rounded font-sans font-bold">v2.12 MESA</span>
-                    </h1>
-                    <p class="text-[11px] text-slate-400 hidden sm:block">Tablero Táctico & Gachapon de 60 Esferas</p>
-                </div>
-            </div>
+		<header class="bg-slate-900/95 border-b-2 border-slate-700 px-3 py-2.5 sticky top-0 z-40 backdrop-blur">
+			<div class="max-w-7xl mx-auto relative flex flex-wrap items-center justify-between gap-2 min-h-[42px]">
+				<div class="flex items-center gap-3">
+					<div id="headerLogoBall" class="w-8 h-8 flex items-center justify-center"></div>
+					<div>
+						<h1 class="font-pixel text-xs sm:text-sm text-yellow-400 tracking-wider flex items-center gap-2">
+							GACHAKÉMON
+							<span class="bg-red-600 text-white text-[9px] px-1.5 py-0.5 rounded font-sans font-bold">v2.17</span>
+						</h1>
+						<p class="text-[11px] text-slate-400 hidden sm:block">Tablero Táctico & Gachapon de 60 Esferas</p>
+					</div>
+				</div>
 
-            <!-- Reproductor de Música Integrado en la barra superior -->
-            <div class="hidden sm:flex items-center bg-slate-950 border border-slate-700 rounded-xl px-3 py-1 gap-2 shadow-inner">
-                <button id="btnToggleMusic" onclick="AudioEngine.toggleMute()" class="text-yellow-400 hover:text-yellow-300 text-xs flex items-center gap-1" title="Activar/Silenciar Música">
-                    <i id="musicIcon" class="fas fa-volume-up"></i>
-                </button>
-                <div class="flex flex-col max-w-[150px]">
-                    <span class="text-[8px] text-slate-400 uppercase tracking-wide leading-none">Pista BGM:</span>
-                    <span id="currentTrackLabel" class="font-vt text-xs text-cyan-300 truncate leading-tight cursor-pointer hover:text-yellow-300 underline decoration-dotted" title="Cambiar pista musical">♪ 01. Pueblo Paleta</span>
-                </div>
-                <button onclick="AudioEngine.nextTrackManual()" class="text-slate-400 hover:text-white text-xs px-1" title="Siguiente pista">
-                    <i class="fas fa-forward"></i>
-                </button>
-                <label class="cursor-pointer text-yellow-400 hover:text-yellow-300 text-xs px-1" title="Cargar MP3 local">
-                    <i class="fas fa-folder-open"></i>
-                    <input type="file" accept="audio/*" class="hidden" onchange="if(this.files[0]) AudioEngine.loadCustomFile(this.files[0], this.files[0].name)">
-                </label>
-            </div>
+				<!-- Indicador de Rondas, Safari y Tolva CENTRADO y MÁS VISIBLE -->
+				<div id="topGameStatus" class="hidden lg:absolute lg:left-1/2 lg:-translate-x-1/2 mx-auto items-center justify-center gap-3 sm:gap-4 bg-slate-950/95 border-2 border-yellow-400 px-4 sm:px-6 py-2 rounded-2xl shadow-[0_0_22px_rgba(250,204,21,0.28)] z-30">
+					<span class="text-yellow-400 font-pixel text-[11px] sm:text-xs tracking-wide" id="topRoundBadge">RONDA 1</span>
+					<span class="text-slate-600 font-bold">|</span>
+					<span class="text-emerald-400 font-pixel text-[10px] sm:text-[11px]" id="topSafariCountdown">Safari en: 3 rondas</span>
+					<span class="text-slate-600 font-bold">|</span>
+					<span class="text-cyan-300 font-pixel text-[10px] sm:text-[11px]" id="topHopperCount">Tolva: 60/60</span>
+				</div>
 
-            <div id="topGameStatus" class="hidden items-center gap-2 bg-slate-800 border border-slate-600 px-3 py-1 rounded-full text-xs">
-                <span class="text-yellow-400 font-pixel text-[10px]" id="topRoundBadge">RONDA 1/3</span>
-                <span class="text-slate-500">|</span>
-                <span class="text-emerald-400 font-semibold" id="topSafariCountdown">Safari en: 3 rondas</span>
-                <span class="text-slate-500">|</span>
-                <span class="text-cyan-300 font-semibold" id="topHopperCount">Tolva: 60/60</span>
-            </div>
+				<!-- Menú Desplegable con Reproductor de Música integrado y sin duplicados -->
+				<div id="headerActionsPanel" class="hidden fixed top-14 right-3 z-[60] w-72 max-h-[calc(100vh-4.5rem)] overflow-y-auto flex flex-col items-stretch gap-2 p-3.5 bg-slate-950/95 border-2 border-slate-600 rounded-2xl shadow-2xl backdrop-blur">
+					
+					<!-- Caja de Música integrada dentro del menú desplegable -->
+					<div class="bg-slate-900 border border-slate-700 rounded-xl p-2.5 flex flex-col gap-2 shadow-inner mb-1">
+						<div class="flex items-center justify-between">
+							<span class="text-[9px] font-pixel text-yellow-400 uppercase">🎵 Reproductor BGM</span>
+							<div class="flex items-center gap-1.5">
+								<button id="btnToggleMusic" onclick="AudioEngine.toggleMute()" class="bg-slate-800 hover:bg-slate-700 text-yellow-400 px-2 py-1 rounded text-xs" title="Activar/Silenciar Música">
+									<i id="musicIcon" class="fas fa-volume-up"></i>
+								</button>
+								<button onclick="AudioEngine.nextTrackManual()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-2 py-1 rounded text-xs" title="Siguiente pista">
+									<i class="fas fa-forward"></i>
+								</button>
+								<label class="cursor-pointer bg-slate-800 hover:bg-slate-700 text-cyan-300 px-2 py-1 rounded text-xs" title="Cargar MP3 local">
+									<i class="fas fa-folder-open"></i>
+									<input type="file" accept="audio/*" class="hidden" onchange="if(this.files[0]) AudioEngine.loadCustomFile(this.files[0], this.files[0].name)">
+								</label>
+							</div>
+						</div>
+						<div id="currentTrackLabel" class="font-vt text-xs text-cyan-300 truncate cursor-pointer hover:text-yellow-300 underline decoration-dotted" title="Haz clic para abrir el Jukebox">
+							♪ 01. Pueblo Paleta
+						</div>
+					</div>
 
-            <!-- Menú Desplegable Mejorado para Herramientas -->
-            <div id="headerActionsPanel" class="hidden fixed top-14 right-3 z-[60] w-64 max-h-[calc(100vh-4.5rem)] overflow-y-auto flex flex-col items-stretch gap-2 p-3 bg-slate-950/95 border border-slate-600 rounded-xl shadow-2xl backdrop-blur">
-                <button onclick="UI.openModal('modalMatrix')" class="bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-emerald-500 flex items-center gap-2 w-full justify-start transition">
-                    <i class="fas fa-table w-4"></i> <span>Matriz de Captura</span>
-                </button>
-                <button onclick="UI.openModal('modalCatalog')" class="bg-purple-700 hover:bg-purple-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-purple-500 flex items-center gap-2 w-full justify-start transition">
-                    <i class="fas fa-book-open w-4"></i> <span>Pokédex / Balls</span>
-                </button>
-                <button onclick="UI.openModal('modalRules')" class="bg-blue-700 hover:bg-blue-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-blue-500 flex items-center gap-2 w-full justify-start transition">
-                    <i class="fas fa-scroll w-4"></i> <span>Reglas Oficiales</span>
-                </button>
-				<button onclick="UI.openModal('modalLeaderboard')" class="bg-yellow-600 hover:bg-yellow-500 text-slate-950 text-xs font-bold px-2.5 py-1.5 rounded-lg border-2 border-yellow-300 flex items-center gap-2 w-full justify-start transition shadow">
-					<i class="fas fa-trophy w-4"></i> <span>TOP Puntuaciones</span>
-				</button>
-                <button onclick="UI.openModal('modalChangelog')" class="bg-cyan-700 hover:bg-cyan-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-cyan-400 flex items-center gap-2 w-full justify-start transition">
-                    <i class="fas fa-clock-rotate-left w-4"></i> <span>Historial (Changelog)</span>
-                </button>
-                <button onclick="UI.openModal('modalBugReport')" class="bg-lime-700 hover:bg-lime-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border-2 border-lime-400 flex items-center gap-2 shadow w-full justify-start transition">
-                    <i class="fas fa-bug w-4 text-slate-950"></i> <span>Reportar Bug (Tipo Bicho)</span>
-                </button>
-                <button onclick="UI.openModal('modalSettings')" class="bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-amber-400 flex items-center gap-2 shadow w-full justify-start transition">
-                    <i class="fas fa-sliders w-4"></i> <span>Ajustes Visuales</span>
-                </button>
-                <button onclick="UI.toggleCRT()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-2.5 py-1.5 rounded-lg border border-slate-600 flex items-center gap-2 w-full justify-start transition">
-                    <i class="fas fa-tv w-4"></i> <span>Filtro CRT Retro</span>
-                </button>
-            </div>
-        </div>
-        <button id="headerMenuToggle" type="button" onclick="UI.toggleHeaderMenu()" aria-controls="headerActionsPanel" aria-expanded="false" aria-label="Mostrar menú" class="fixed top-3 right-3 z-[70] w-10 h-10 rounded-xl border-2 border-cyan-400 bg-slate-950/95 text-cyan-300 shadow-lg hover:bg-slate-800 flex items-center justify-center transition">
-            <i id="headerMenuIcon" class="fas fa-bars"></i>
-        </button>
-    </header>
-    <main class="relative z-10 flex-1 max-w-7xl w-full mx-auto p-2 sm:p-4 flex flex-col">
+					<button id="btnHeaderLeaderboard" onclick="UI.openModal('modalLeaderboard')" class="bg-yellow-500 hover:bg-yellow-400 text-slate-950 text-xs font-bold px-2.5 py-2 rounded-lg border-2 border-yellow-300 flex items-center gap-2 w-full justify-start transition shadow">
+						<i class="fas fa-trophy w-4"></i> <span>TOP Puntuaciones</span>
+					</button>
+					<button onclick="UI.openModal('modalMatrix')" class="bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-emerald-500 flex items-center gap-2 w-full justify-start transition">
+						<i class="fas fa-table w-4"></i> <span>Matriz de Captura</span>
+					</button>
+					<button onclick="UI.openModal('modalCatalog')" class="bg-purple-700 hover:bg-purple-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-purple-500 flex items-center gap-2 w-full justify-start transition">
+						<i class="fas fa-book-open w-4"></i> <span>Pokédex / Balls</span>
+					</button>
+					<button onclick="UI.openModal('modalRules')" class="bg-blue-700 hover:bg-blue-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-blue-500 flex items-center gap-2 w-full justify-start transition">
+						<i class="fas fa-scroll w-4"></i> <span>Reglas Oficiales</span>
+					</button>
+					<button onclick="UI.openModal('modalChangelog')" class="bg-cyan-700 hover:bg-cyan-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-cyan-400 flex items-center gap-2 w-full justify-start transition">
+						<i class="fas fa-clock-rotate-left w-4"></i> <span>Historial (Changelog)</span>
+					</button>
+					<button onclick="UI.openModal('modalBugReport')" class="bg-lime-700 hover:bg-lime-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border-2 border-lime-400 flex items-center gap-2 shadow w-full justify-start transition">
+						<i class="fas fa-bug w-4 text-slate-950"></i> <span>Reportar Bug (Tipo Bicho)</span>
+					</button>
+					<button onclick="UI.openModal('modalSettings')" class="bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-amber-400 flex items-center gap-2 shadow w-full justify-start transition">
+						<i class="fas fa-sliders w-4"></i> <span>Ajustes Visuales</span>
+					</button>
+					<button onclick="UI.toggleCRT()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-2.5 py-1.5 rounded-lg border border-slate-600 flex items-center gap-2 w-full justify-start transition">
+						<i class="fas fa-tv w-4"></i> <span>Filtro CRT Retro</span>
+					</button>
+					<button id="btnAbandonMatch" onclick="GameController.abandonMatchAndReturnToLobby()" class="hidden bg-red-950 hover:bg-red-900 text-red-200 text-xs font-bold px-2.5 py-1.5 rounded-lg border border-red-500/60 items-center gap-2 w-full justify-start transition mt-1">
+						<i class="fas fa-right-from-bracket w-4"></i> <span>Salir al Lobby</span>
+					</button>
+				</div>
+			</div>
+			<button id="headerMenuToggle" type="button" onclick="UI.toggleHeaderMenu()" aria-controls="headerActionsPanel" aria-expanded="false" aria-label="Mostrar menú" class="fixed top-3 right-3 z-[70] w-10 h-10 rounded-xl border-2 border-cyan-400 bg-slate-950/95 text-cyan-300 shadow-lg hover:bg-slate-800 flex items-center justify-center transition">
+				<i id="headerMenuIcon" class="fas fa-bars"></i>
+			</button>
+		</header>    
+	<main class="relative z-10 flex-1 max-w-7xl w-full mx-auto p-2 sm:p-4 flex flex-col">
 
 		<section id="screenLobby" class="flex-1 flex flex-col justify-between py-3 sm:py-6 max-w-5xl mx-auto w-full gap-6">
             
@@ -1202,10 +1211,36 @@
             </div>
 
             <div class="flex-1 overflow-y-auto space-y-4 pr-1 text-xs leading-relaxed">
+				
+				<div class="bg-slate-950 border-2 border-yellow-400/80 rounded-xl p-4 space-y-2 shadow-lg">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="font-pixel text-xs text-purple-300 bg-purple-500/20 px-2.5 py-1 rounded border border-purple-400/50">v2.18 — BANDEJAS MULTI-FILA, ANIMACIÓN DE MAZOS Y CARTELES DE TURNO/RONDA</span>
+                        <span class="text-yellow-400 font-bold">Versión actual</span>
+                    </div>
+                    <ul class="space-y-1.5 text-slate-200 list-disc list-inside pt-1">
+                        <li><strong>Bandejas de Pokéballs y Capturados sin scroll lateral:</strong> Rediseñadas en cuadrícula adaptable multi-fila con mayor espacio en mesa para visualizar toda tu colección de un vistazo sin desplazarte hacia la derecha.</li>
+                        <li><strong>Mazos físicos ampliados con animaciones 3D:</strong> Mayor tamaño en los mazos del tapete central e incorporación de animaciones de cartas volando al robar y giro 3D sobre el mazo al revelarse una Carta de Trampa.</li>
+                        <li><strong>Anuncio gigante «¡TU TURNO!»:</strong> Letrero cinemático central que aparece brevemente al comenzar el turno del jugador humano y desaparece automáticamente.</li>
+                        <li><strong>Anuncio de transición de Ronda y cuenta atrás Safari:</strong> Al concluir cada ronda e iniciar la siguiente, se muestra en grande en mitad de la pantalla <em>«RONDA X. FASE SAFARI EN X TURNOS»</em>.</li>
+                    </ul>
+                </div>
+				<div class="bg-slate-950 border-2 border-yellow-400/80 rounded-xl p-4 space-y-2 shadow-lg">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="font-pixel text-xs text-emerald-300 bg-emerald-500/20 px-2.5 py-1 rounded border border-emerald-400/50">v2.17 — PERSISTENCIA DE PARTIDA Y DRAFT SIMULTÁNEO</span>
+                        <span class="text-yellow-400 font-bold">Versión actual</span>
+                    </div>
+                    <ul class="space-y-1.5 text-slate-200 list-disc list-inside pt-1">
+                        <li><strong>Corrección definitiva del uso de Baya Dorada por Bots en Safari:</strong> Solucionado el fallo por el que un bot con Baya Dorada que fallaba su tirada por 1 moneda no activaba el flag de reacción y congelaba la pantalla de captura.</li>
+                        <li><strong>Bloqueo estricto en Safari de IA:</strong> Durante el turno de captura de un bot en modo Solitario u Online, quedan deshabilitados los clics sobre las cartas del bot, los Pokémon salvajes y su bandeja de Pokéballs.</li>
+                        <li><strong>Persistencia automática al refrescar:</strong> Tu nombre de entrenador y la partida en curso se guardan automáticamente en memoria local para que al recargar la página continúes exactamente donde estabas.</li>
+                        <li><strong>Draft inicial simultáneo en Multijugador:</strong> Al comenzar una partida online, todos los jugadores ven a la vez en su pantalla la selección inicial de 3 Objetivos Secretos y 3 Cartas de Efecto.</li>
+                        <li><strong>Textos resumidos en mano y HUD mejorado:</strong> Las cartas en mano muestran un resumen directo (con texto completo al ampliarlas), el indicador de Ronda/Safari/Tolva aparece centrado y destacado, el reproductor musical se integra en el menú desplegable y la fuente por defecto pasa a ser <em>Arcade 8-Bit (Press Start 2P)</em>.</li>
+                    </ul>
+                </div>
 				<div class="bg-slate-950 border-2 border-yellow-400/80 rounded-xl p-4 space-y-2 shadow-lg">
 					<div class="flex items-center justify-between gap-2">
 						<span class="font-pixel text-xs text-yellow-300 bg-yellow-500/20 px-2.5 py-1 rounded border border-yellow-400/50">v2.16 — CORRECCIÓN DE BUCLES EN SAFARI Y BLOQUEO DE IA</span>
-						<span class="text-yellow-400 font-bold">Versión actual</span>
+						<span class="text-yellow-400 font-bold">Versión anterior</span>
 					</div>
 					<ul class="space-y-1.5 text-slate-200 list-disc list-inside pt-1">
 						<li><strong>Corrección de bloqueo en el Safari:</strong> Solucionado el error por el cual si un bot fallaba su tirada de captura, la máquina de estados se quedaba congelada en la pantalla de tirada. Ahora el flujo avanza de forma fluida e inequívoca al siguiente entrenador.</li>
@@ -1215,7 +1250,7 @@
 				<div class="bg-slate-950 border-2 border-yellow-400/80 rounded-xl p-4 space-y-2 shadow-lg">
                     <div class="flex items-center justify-between gap-2">
                         <span class="font-pixel text-xs text-yellow-300 bg-yellow-500/20 px-2.5 py-1 rounded border border-yellow-400/50">v2.15 — REDISEÑO FLUIDO DEL LOBBY</span>
-                        <span class="text-yellow-400 font-bold">Versión actual</span>
+                        <span class="text-yellow-400 font-bold">Versión anterior</span>
                     </div>
                     <ul class="space-y-1.5 text-slate-200 list-disc list-inside pt-1">
                         <li><strong>Lobby abierto sobre el tapete:</strong> Eliminadas las cajas anidadas rígidas; la máquina de Gachapon, el medallón de entrenador y las opciones descansan ahora directamente sobre la mesa con iluminación ambiental.</li>
@@ -1227,7 +1262,7 @@
 				<div class="bg-slate-950 border-2 border-yellow-400/80 rounded-xl p-4 space-y-2 shadow-lg">
                     <div class="flex items-center justify-between gap-2">
                         <span class="font-pixel text-xs text-yellow-300 bg-yellow-500/20 px-2.5 py-1 rounded border border-yellow-400/50">v2.14 — TOP PUNTUACIONES PERMANENTE Y COLA CLASIFICATORIA 4J</span>
-                        <span class="text-yellow-400 font-bold">Versión actual</span>
+                        <span class="text-yellow-400 font-bold">Versión anterior</span>
                     </div>
                     <ul class="space-y-1.5 text-slate-200 list-disc list-inside pt-1">
                         <li><strong>TOP Puntuaciones (Salón de la Fama):</strong> Nuevo panel fijo en el menú principal y ventana modal accesible desde la barra superior que guarda de forma persistente los récords históricos de Puntos de Victoria (PV), mejor Pokémon capturado, fecha y modalidad.</li>
@@ -1299,7 +1334,7 @@
                         <span class="font-pixel text-xs text-lime-300 bg-lime-500/20 px-2.5 py-1 rounded border border-lime-400/50">v2.9 — ONLINE, PRIVACIDAD VISUAL Y LIMPIEZA</span>
                         <span class="text-slate-400 font-bold">Versión anterior</span>
                     </div>
-                    <ul class="space-y-1.5 text-slate-200 list-disc list-inside p</li>
+                    <ul class="space-y-1.5 text-slate-200 list-disc list-inside pt-1">
                         <li><strong>Conexión online unificada:</strong> Un solo PeerJS por sala y por cliente, código de sala coherente y retransmisión de los cambios recibidos por el anfitrión.</li>
                         <li><strong>Validación de turno:</strong> El anfitrión rechaza sincronizaciones enviadas por una conexión que no corresponde al jugador que controla el turno activo.</li>
                         <li><strong>Manos privadas en pantalla:</strong> En online cada jugador ve su propio tablero y sus cartas; los rivales solo muestran el número de cartas. Los controles de turno y Safari quedan limitados al jugador activo.</li>
