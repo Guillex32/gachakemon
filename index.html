@@ -207,17 +207,35 @@
     <div id="crtLayer" class="crt-overlay"></div>
     <div id="pokemonPlaygroundBg" class="fixed inset-0 pointer-events-none overflow-hidden z-0"></div>
 
-    <header class="bg-slate-900/95 border-b-2 border-slate-700 px-3 py-2 sticky top-0 z-40 backdrop-blur">
+	<header class="bg-slate-900/95 border-b-2 border-slate-700 px-3 py-2 sticky top-0 z-40 backdrop-blur">
         <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2">
             <div class="flex items-center gap-3">
                 <div id="headerLogoBall" class="w-8 h-8 flex items-center justify-center"></div>
                 <div>
                     <h1 class="font-pixel text-xs sm:text-sm md:text-base text-yellow-400 tracking-wider flex items-center gap-2">
                         GACHAKÉMON
-                        <span class="bg-red-600 text-white text-[9px] px-1.5 py-0.5 rounded font-sans font-bold">v2.12 ONLINE AUTOMÁTICO</span>
+                        <span class="bg-red-600 text-white text-[9px] px-1.5 py-0.5 rounded font-sans font-bold">v2.12 MESA</span>
                     </h1>
-                    <p class="text-[11px] text-slate-400 hidden sm:block">Coleccionismo Gachapon (60 Esferas) y Safari (251 Criaturas)</p>
+                    <p class="text-[11px] text-slate-400 hidden sm:block">Tablero Táctico & Gachapon de 60 Esferas</p>
                 </div>
+            </div>
+
+            <!-- Reproductor de Música Integrado en la barra superior -->
+            <div class="hidden sm:flex items-center bg-slate-950 border border-slate-700 rounded-xl px-3 py-1 gap-2 shadow-inner">
+                <button id="btnToggleMusic" onclick="AudioEngine.toggleMute()" class="text-yellow-400 hover:text-yellow-300 text-xs flex items-center gap-1" title="Activar/Silenciar Música">
+                    <i id="musicIcon" class="fas fa-volume-up"></i>
+                </button>
+                <div class="flex flex-col max-w-[150px]">
+                    <span class="text-[8px] text-slate-400 uppercase tracking-wide leading-none">Pista BGM:</span>
+                    <span id="currentTrackLabel" class="font-vt text-xs text-cyan-300 truncate leading-tight cursor-pointer hover:text-yellow-300 underline decoration-dotted" title="Cambiar pista musical">♪ 01. Pueblo Paleta</span>
+                </div>
+                <button onclick="AudioEngine.nextTrackManual()" class="text-slate-400 hover:text-white text-xs px-1" title="Siguiente pista">
+                    <i class="fas fa-forward"></i>
+                </button>
+                <label class="cursor-pointer text-yellow-400 hover:text-yellow-300 text-xs px-1" title="Cargar MP3 local">
+                    <i class="fas fa-folder-open"></i>
+                    <input type="file" accept="audio/*" class="hidden" onchange="if(this.files[0]) AudioEngine.loadCustomFile(this.files[0], this.files[0].name)">
+                </label>
             </div>
 
             <div id="topGameStatus" class="hidden items-center gap-2 bg-slate-800 border border-slate-600 px-3 py-1 rounded-full text-xs">
@@ -228,59 +246,35 @@
                 <span class="text-cyan-300 font-semibold" id="topHopperCount">Tolva: 60/60</span>
             </div>
 
+            <!-- Menú Desplegable Mejorado para Herramientas -->
             <div id="headerActionsPanel" class="hidden fixed top-14 right-3 z-[60] w-64 max-h-[calc(100vh-4.5rem)] overflow-y-auto flex flex-col items-stretch gap-2 p-3 bg-slate-950/95 border border-slate-600 rounded-xl shadow-2xl backdrop-blur">
-                <!-- Controles secundarios plegados para liberar espacio de juego -->
-                <div class="flex items-center w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1 gap-2">
-                    <button id="btnToggleMusic" onclick="AudioEngine.toggleMute()" class="text-yellow-400 hover:text-yellow-300 text-xs flex items-center gap-1" title="Activar/Silenciar Música">
-                        <i id="musicIcon" class="fas fa-volume-up"></i>
-                    </button>
-                    <div class="flex flex-col max-w-[150px] sm:max-w-[180px]">
-                        <span class="text-[9px] text-slate-400 uppercase tracking-wide leading-none">Música Activa:</span>
-                        <span id="currentTrackLabel" class="font-vt text-sm text-cyan-300 truncate leading-tight" title="Pista actual sonando">♪ 01. Pueblo Paleta</span>
-                    </div>
-                    <button onclick="AudioEngine.nextTrackManual()" class="text-slate-400 hover:text-white text-xs px-1" title="Siguiente pista interna">
-                        <i class="fas fa-forward"></i>
-                    </button>
-                    <label class="cursor-pointer text-yellow-400 hover:text-yellow-300 text-xs px-1" title="Cargar tu propia música (MP3/WAV/OGG desde tu dispositivo)">
-                        <i class="fas fa-folder-open"></i>
-                        <input type="file" accept="audio/*" class="hidden" onchange="if(this.files[0]) AudioEngine.loadCustomFile(this.files[0], this.files[0].name)">
-                    </label>
-                </div>
-
-                <button onclick="UI.openModal('modalMatrix')" class="bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-emerald-500 flex items-center gap-1 w-full justify-start" title="Matriz Oficial de Captura">
-                    <i class="fas fa-table"></i> <span>Matriz</span>
+                <button onclick="UI.openModal('modalMatrix')" class="bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-emerald-500 flex items-center gap-2 w-full justify-start transition">
+                    <i class="fas fa-table w-4"></i> <span>Matriz de Captura</span>
                 </button>
-                <button onclick="UI.openModal('modalCatalog')" class="bg-purple-700 hover:bg-purple-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-purple-500 flex items-center gap-1 w-full justify-start" title="Guía de 13 Balls y 251 Criaturas">
-                    <i class="fas fa-book-open"></i> <span>Dex/Balls</span>
+                <button onclick="UI.openModal('modalCatalog')" class="bg-purple-700 hover:bg-purple-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-purple-500 flex items-center gap-2 w-full justify-start transition">
+                    <i class="fas fa-book-open w-4"></i> <span>Pokédex / Balls</span>
                 </button>
-                <button onclick="UI.openModal('modalRules')" class="bg-blue-700 hover:bg-blue-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-blue-500 flex items-center gap-1 w-full justify-start" title="Reglamento Oficial">
-                    <i class="fas fa-scroll"></i> <span>Reglas</span>
+                <button onclick="UI.openModal('modalRules')" class="bg-blue-700 hover:bg-blue-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-blue-500 flex items-center gap-2 w-full justify-start transition">
+                    <i class="fas fa-scroll w-4"></i> <span>Reglas Oficiales</span>
                 </button>
-                <button onclick="UI.openModal('modalChangelog')" class="bg-cyan-700 hover:bg-cyan-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-cyan-400 flex items-center gap-1 w-full justify-start" title="Historial de Versiones (Changelog)">
-                    <i class="fas fa-clock-rotate-left"></i> <span>Changelog</span>
+                <button onclick="UI.openModal('modalChangelog')" class="bg-cyan-700 hover:bg-cyan-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-cyan-400 flex items-center gap-2 w-full justify-start transition">
+                    <i class="fas fa-clock-rotate-left w-4"></i> <span>Historial (Changelog)</span>
                 </button>
-                <button onclick="UI.openModal('modalBugReport')" class="bg-lime-700 hover:bg-lime-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border-2 border-lime-400 flex items-center gap-1.5 shadow w-full justify-start" title="Reportar Bug (Centro Cazabichos - Tipo Bicho)">
-                    <svg width="15" height="15" viewBox="0 0 24 24" class="inline-block shrink-0" fill="none">
-                        <circle cx="12" cy="12" r="11" fill="#84cc16" stroke="#0f172a" stroke-width="2"/>
-                        <ellipse cx="12" cy="13.5" rx="4.5" ry="5.5" fill="#0f172a"/>
-                        <circle cx="12" cy="7" r="2.5" fill="#0f172a"/>
-                        <path d="M9.5 5.5 L7 3 M14.5 5.5 L17 3 M7.5 11 L4 9.5 M16.5 11 L20 9.5 M7.5 14 L3.5 14 M16.5 14 L20.5 14 M8 17 L4.5 18.5 M16 17 L19.5 18.5" stroke="#0f172a" stroke-width="1.8" stroke-linecap="round"/>
-                    </svg>
-                    <span>Reportar Bug</span>
+                <button onclick="UI.openModal('modalBugReport')" class="bg-lime-700 hover:bg-lime-600 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border-2 border-lime-400 flex items-center gap-2 shadow w-full justify-start transition">
+                    <i class="fas fa-bug w-4 text-slate-950"></i> <span>Reportar Bug (Tipo Bicho)</span>
                 </button>
-                <button onclick="UI.openModal('modalSettings')" class="bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-amber-400 flex items-center gap-1 shadow w-full justify-start" title="Ajustes de Audio, Tamaño UI, Paleta de Colores y Fondo Animado">
-                    <i class="fas fa-sliders"></i> <span>Ajustes</span>
+                <button onclick="UI.openModal('modalSettings')" class="bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-amber-400 flex items-center gap-2 shadow w-full justify-start transition">
+                    <i class="fas fa-sliders w-4"></i> <span>Ajustes Visuales</span>
                 </button>
-                <button onclick="UI.toggleCRT()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-2 py-1.5 rounded-lg border border-slate-600 w-full justify-start" title="Filtro Monitor CRT Retro">
-                    <i class="fas fa-tv"></i>
+                <button onclick="UI.toggleCRT()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs px-2.5 py-1.5 rounded-lg border border-slate-600 flex items-center gap-2 w-full justify-start transition">
+                    <i class="fas fa-tv w-4"></i> <span>Filtro CRT Retro</span>
                 </button>
             </div>
         </div>
-        <button id="headerMenuToggle" type="button" onclick="UI.toggleHeaderMenu()" aria-controls="headerActionsPanel" aria-expanded="false" aria-label="Mostrar menú" class="fixed top-3 right-3 z-[70] w-10 h-10 rounded-xl border-2 border-cyan-400 bg-slate-950/95 text-cyan-300 shadow-lg hover:bg-slate-800 flex items-center justify-center" title="Mostrar herramientas y ajustes">
+        <button id="headerMenuToggle" type="button" onclick="UI.toggleHeaderMenu()" aria-controls="headerActionsPanel" aria-expanded="false" aria-label="Mostrar menú" class="fixed top-3 right-3 z-[70] w-10 h-10 rounded-xl border-2 border-cyan-400 bg-slate-950/95 text-cyan-300 shadow-lg hover:bg-slate-800 flex items-center justify-center transition">
             <i id="headerMenuIcon" class="fas fa-bars"></i>
         </button>
     </header>
-
     <main class="relative z-10 flex-1 max-w-7xl w-full mx-auto p-2 sm:p-4 flex flex-col">
 
         <section id="screenLobby" class="flex-1 flex flex-col items-center justify-center py-4">
@@ -301,7 +295,7 @@
                         <div class="grid grid-cols-3 gap-2 w-full text-center text-[11px] bg-slate-800/80 p-2.5 rounded-lg border border-slate-700">
                             <div>
                                 <div class="text-yellow-400 font-pixel text-xs">60</div>
-                                <div class="text-slate-400">Balls 25mm</div>
+                                <div class="text-slate-400">Balls</div>
                             </div>
                             <div>
                                 <div class="text-emerald-400 font-pixel text-xs">251</div>
@@ -309,7 +303,7 @@
                             </div>
                             <div>
                                 <div class="text-purple-400 font-pixel text-xs">47+22</div>
-                                <div class="text-slate-400">Efectos/Obj</div>
+                                <div class="text-slate-400">Efectos+Obj</div>
                             </div>
                         </div>
                     </div>
@@ -447,179 +441,159 @@
             </div>
         </section>
 
-        <section id="screenGame" class="hidden flex-1 flex flex-col gap-3">
+        <section id="screenGame" class="hidden flex-1 flex flex-col justify-between gap-3 py-1">
             
+            <!-- 1. ASIENTOS DE RIVALES EN LA PARTE SUPERIOR DE LA MESA -->
             <div id="rivalsBar" class="grid grid-cols-1 sm:grid-cols-3 gap-2.5"></div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-stretch">
-                
-                <div class="lg:col-span-4 pixel-box p-3.5 flex flex-col justify-between relative bg-gradient-to-b from-slate-800 to-slate-900">
-                    <div class="flex items-center justify-between border-b border-slate-700 pb-2 mb-2">
-                        <div>
-                            <h3 class="font-pixel text-[11px] text-yellow-400 flex items-center gap-1.5">
-                                <i class="fas fa-dharmachakra text-red-400"></i> MÁQUINA GACHAPON
-                            </h3>
-                            <p class="text-[11px] text-slate-400">Coste: 3 P¥ (2 P¥ impuestos + 1 P¥ ranura)</p>
+            <!-- 2. CENTRO DEL TABLERO (TAPETE CENTRAL: GACHA + ACCIÓN + MAZOS FÍSICOS 3D) -->
+            <div class="board-table-mat rounded-2xl p-3 sm:p-4 border-2 border-slate-700/80 shadow-2xl relative overflow-hidden">
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
+                    
+                    <!-- Izquierda: Máquina Gachapon Compacta -->
+                    <div class="lg:col-span-4 flex items-center justify-around bg-slate-950/75 border border-slate-800 rounded-xl p-3">
+                        <div class="flex flex-col items-center">
+                            <div id="gachaMachineInteractive" onclick="UI.openHopperModal()" class="w-28 h-36 cursor-pointer hover:scale-105 transition flex items-center justify-center" title="Clic para ver probabilidades de las 60 Pokéballs"></div>
+                            <div id="hopperRarityBar" class="w-28 h-2 rounded-full overflow-hidden flex bg-slate-900 border border-slate-700 mt-1"></div>
+                            <span class="text-[10px] font-pixel text-cyan-300 mt-1">Tolva: <span id="hopperBadgeCount">60/60</span></span>
                         </div>
-                        <button onclick="UI.openHopperModal()" class="bg-slate-950 hover:bg-slate-800 text-cyan-300 border border-cyan-500/50 px-2 py-1 rounded text-[11px] font-semibold">
-                            <i class="fas fa-chart-pie mr-1"></i> <span id="hopperBadgeCount">60/60</span>
-                        </button>
-                    </div>
 
-                    <div class="flex items-center justify-around my-1 relative">
-                        <div id="gachaMachineInteractive" class="w-40 h-48 flex items-center justify-center relative"></div>
-
-                        <div class="flex flex-col items-center justify-center w-36 bg-slate-950/90 border border-slate-700 rounded-xl p-2.5 text-center min-h-[160px]">
-                            <div class="text-[10px] font-pixel text-slate-400 mb-1">ÚLTIMA EXTRACCIÓN</div>
-                            <div id="lastExtractedSlot" class="w-16 h-16 flex items-center justify-center my-1">
-                                <span class="text-xs text-slate-600 italic">Vacío</span>
+                        <div class="flex flex-col items-center justify-center w-32 bg-slate-900/90 border border-slate-800 rounded-xl p-2.5 text-center">
+                            <span class="text-[9px] font-pixel text-slate-400 uppercase">Última Bola</span>
+                            <div id="lastExtractedSlot" class="w-14 h-14 flex items-center justify-center my-1">
+                                <span class="text-[10px] text-slate-600 italic">Vacío</span>
                             </div>
-                            <div id="lastExtractedName" class="text-xs font-bold text-white leading-tight">—</div>
-                            <div id="lastExtractedDesc" class="text-[10px] text-slate-400 mt-0.5 leading-tight">¡Gira la manivela en la Fase 2!</div>
+                            <div id="lastExtractedName" class="text-[11px] font-bold text-white truncate w-full">—</div>
+                            <div id="lastExtractedDesc" class="text-[9px] text-slate-400 truncate w-full">3 P¥ por tirada</div>
                         </div>
                     </div>
 
-                    <div class="mt-2 pt-2 border-t border-slate-700/80">
-                        <div class="flex justify-between text-[10px] text-slate-400 mb-1">
-                            <span>Distribución en Tolva:</span>
-                            <button onclick="UI.openHopperModal()" class="text-yellow-400 hover:underline">Ver las 13 Balls</button>
-                        </div>
-                        <div id="hopperRarityBar" class="w-full h-2.5 rounded-full overflow-hidden flex bg-slate-950 border border-slate-700"></div>
-                    </div>
-                </div>
-
-                <div class="lg:col-span-5 pixel-box p-4 flex flex-col justify-between bg-slate-900">
-                    <div>
-                        <div class="flex flex-wrap items-center justify-between gap-2 bg-slate-950 border border-slate-700 px-3 py-2 rounded-lg mb-3">
+                    <!-- Centro: Indicador de Turno y Botones de Acción de Mesa -->
+                    <div class="lg:col-span-4 flex flex-col justify-between gap-2.5 bg-slate-950/85 border-2 border-slate-700/90 rounded-xl p-3.5 shadow-inner min-h-[175px]">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-2">
                             <div class="flex items-center gap-2">
-                                <span id="turnPlayerDot" class="w-3 h-3 rounded-full bg-yellow-400 animate-ping"></span>
-                                <span class="font-pixel text-xs text-white" id="turnPlayerHeader">TURNO DEL JUGADOR</span>
+                                <span id="turnPlayerDot" class="w-2.5 h-2.5 rounded-full bg-yellow-400 animate-ping"></span>
+                                <span class="font-pixel text-[11px] text-white" id="turnPlayerHeader">TURNO</span>
                             </div>
-                            <span id="turnPhaseBadge" class="bg-yellow-500/20 text-yellow-300 border border-yellow-400/50 text-[10px] font-pixel px-2 py-0.5 rounded">
-                                FASE 2: ACCIÓN
+                            <span id="turnPhaseBadge" class="bg-yellow-500/20 text-yellow-300 border border-yellow-400/40 text-[9px] font-pixel px-2 py-0.5 rounded">
+                                FASE 2
                             </span>
                         </div>
 
-                        <div class="grid grid-cols-3 gap-1.5 mb-3 text-center">
-                            <div id="stepIndicator1" class="p-1.5 rounded border text-[10px] font-bold">
-                                <div class="font-pixel text-[9px]">FASE 1</div>
-                                <div>Robo hasta 3</div>
-                            </div>
-                            <div id="stepIndicator2" class="p-1.5 rounded border text-[10px] font-bold">
-                                <div class="font-pixel text-[9px]">FASE 2</div>
-                                <div>Trabajo / Gacha</div>
-                            </div>
-                            <div id="stepIndicator3" class="p-1.5 rounded border text-[10px] font-bold">
-                                <div class="font-pixel text-[9px]">FASE 3</div>
-                                <div>Objetos / Fin</div>
+                        <!-- Pasos minimalistas -->
+                        <div class="grid grid-cols-3 gap-1 text-center">
+                            <div id="stepIndicator1" class="py-1 rounded border text-[9px] font-pixel">1. ROBO</div>
+                            <div id="stepIndicator2" class="py-1 rounded border text-[9px] font-pixel">2. ACCIÓN</div>
+                            <div id="stepIndicator3" class="py-1 rounded border text-[9px] font-pixel">3. OBJETOS</div>
+                        </div>
+
+                        <div id="turnActionPanel" class="flex-1 flex flex-col justify-center py-1"></div>
+
+                        <div class="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800/80">
+                            <span>🎟️ Safari: <strong id="ticketSafariHolderName" class="text-emerald-300">—</strong></span>
+                            <button onclick="UI.openLogModal()" class="text-cyan-400 hover:text-cyan-200 font-semibold flex items-center gap-1">
+                                <i class="fas fa-scroll"></i> Registro (<span id="logRoundIndicator">R1</span>)
+                            </button>
+                        </div>
+                        <!-- Contenedor oculto para mantener compatibilidad del log -->
+                        <div id="gameLogContainer" class="hidden"></div>
+                    </div>
+
+                    <!-- Derecha: Mazos Físicos de Cartas en 3D sobre la Mesa -->
+                    <div class="lg:col-span-4 flex items-center justify-around py-2">
+                        <!-- Mazo Safari Pokémon -->
+                        <div onclick="UI.openModal('modalCatalog'); UI.switchCatalogTab('dex')" class="physical-deck deck-pokemon group" title="Ver catálogo de 251 Pokémon">
+                            <div class="physical-deck-card">
+                                <i class="fas fa-paw text-emerald-400 text-xl mb-1 group-hover:scale-110 transition"></i>
+                                <span class="font-pixel text-[8px] text-emerald-200 tracking-wider">SAFARI</span>
+                                <span id="deckPokemonCount" class="font-pixel text-xs text-white mt-1 bg-slate-950/80 px-2 py-0.5 rounded-full border border-emerald-500/40">251</span>
                             </div>
                         </div>
 
-                        <div id="turnActionPanel" class="bg-slate-950/90 border-2 border-slate-700 rounded-xl p-3.5 min-h-[155px] flex flex-col justify-center"></div>
+                        <!-- Mazo de Efectos y Trampas -->
+                        <div id="visualEffectDeckPile" class="physical-deck deck-effects group" title="Mazo de Cartas de Objeto y Trampas">
+                            <div class="physical-deck-card">
+                                <i class="fas fa-bolt text-cyan-400 text-xl mb-1 group-hover:scale-110 transition"></i>
+                                <span class="font-pixel text-[8px] text-cyan-200 tracking-wider">EFECTOS</span>
+                                <span id="deckEffectCount" class="font-pixel text-xs text-white mt-1 bg-slate-950/80 px-2 py-0.5 rounded-full border border-cyan-500/40">47</span>
+                            </div>
+                        </div>
+
+                        <!-- Pila de Descartes -->
+                        <div onclick="UI.inspectDiscardPile()" class="physical-deck deck-discard group" title="Clic para ver cartas descartadas">
+                            <div class="physical-deck-card border-dashed">
+                                <i class="fas fa-layer-group text-amber-400 text-lg mb-1 group-hover:scale-110 transition"></i>
+                                <span class="font-pixel text-[8px] text-amber-200 tracking-wider">DESCARTE</span>
+                                <span id="deckDiscardCount" class="font-pixel text-xs text-amber-300 mt-1 bg-slate-950/80 px-2 py-0.5 rounded-full border border-amber-500/40">0</span>
+                            </div>
+                        </div>
                     </div>
 
-                    <div class="grid grid-cols-3 gap-2 pt-3 border-t border-slate-800 text-center text-xs mt-2">
-                        <div class="bg-slate-800/80 px-2 py-1.5 rounded border border-slate-700">
-                            <div class="text-[10px] text-slate-400">MAZO POKÉMON</div>
-                            <div class="font-pixel text-xs text-emerald-400" id="deckPokemonCount">251</div>
-                        </div>
-                        <div class="bg-slate-800/80 px-2 py-1.5 rounded border border-slate-700">
-                            <div class="text-[10px] text-slate-400">MAZO EFECTO</div>
-                            <div class="font-pixel text-xs text-cyan-400" id="deckEffectCount">47</div>
-                        </div>
-                        <div class="bg-slate-800/80 px-2 py-1.5 rounded border border-slate-700">
-                            <div class="text-[10px] text-slate-400">TICKET SAFARI</div>
-                            <div class="font-bold text-xs text-amber-300 truncate" id="ticketSafariHolderName">—</div>
-                        </div>
-                    </div>
                 </div>
-
-                <div class="lg:col-span-3 pixel-box p-3 flex flex-col justify-between bg-slate-950">
-                    <div class="flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
-                        <span class="font-pixel text-[10px] text-cyan-400"><i class="fas fa-terminal mr-1"></i> REGISTRO DE PARTIDA</span>
-                        <span class="text-[10px] text-slate-500" id="logRoundIndicator">Ronda 1</span>
-                    </div>
-                    <div id="gameLogContainer" class="flex-1 overflow-y-auto space-y-1.5 max-h-[235px] pr-1 font-vt text-base leading-tight"></div>
-                </div>
-
             </div>
 
-            <div class="pixel-box-gold p-3.5 sm:p-4 bg-slate-900/95">
-                <div class="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-700">
-                    <div class="flex items-center gap-3">
-                        <div class="bg-yellow-500 text-slate-950 font-pixel text-xs px-2.5 py-1.5 rounded font-bold" id="activeTrayTitle">
-                            TU BANDEJA
+            <!-- 3. TU PROPIA MESA DE JUGADOR (BANDEJA, TROFEOS, OBJETIVOS COMPACTOS Y MANO TCG) -->
+            <div class="pixel-box-gold p-3 sm:p-4 bg-slate-900/95">
+                <!-- Cabecera de tu mesa -->
+                <div class="flex flex-wrap items-center justify-between gap-2 pb-2.5 mb-3 border-b border-slate-800">
+                    <div class="flex flex-wrap items-center gap-2">
+                        <div class="bg-yellow-500 text-slate-950 font-pixel text-[10px] px-2.5 py-1 rounded font-bold" id="activeTrayTitle">
+                            TU MESA
                         </div>
-                        <div class="flex items-center gap-2 bg-slate-950 border border-yellow-500/50 px-3 py-1 rounded-lg">
-                            <i class="fas fa-coins text-yellow-400"></i>
-                            <span class="font-pixel text-sm text-yellow-300" id="activePlayerYen">3 P¥</span>
+                        <div class="flex items-center gap-1.5 bg-slate-950 border border-yellow-500/50 px-2.5 py-1 rounded-lg">
+                            <i class="fas fa-coins text-yellow-400 text-xs"></i>
+                            <span class="font-pixel text-xs text-yellow-300" id="activePlayerYen">3 P¥</span>
                         </div>
-                        <div class="flex items-center gap-2 bg-slate-950 border border-purple-500/50 px-3 py-1 rounded-lg" title="Puntos de Victoria estimados actuales">
-                            <i class="fas fa-star text-purple-400"></i>
-                            <span class="font-pixel text-sm text-purple-300" id="activePlayerLivePV">0 PV</span>
+                        <div class="flex items-center gap-1.5 bg-slate-950 border border-purple-500/50 px-2.5 py-1 rounded-lg">
+                            <i class="fas fa-star text-purple-400 text-xs"></i>
+                            <span class="font-pixel text-xs text-purple-300" id="activePlayerLivePV">0 PV</span>
                         </div>
-                        <div id="activeTicketBadge" class="hidden bg-emerald-600/30 border border-emerald-400 text-emerald-200 text-xs px-2.5 py-1 rounded-full font-bold">
-                            🎟️ Posees el Ticket Safari (1º en Capturar)
-                        </div>
-                        <div id="activeDiscountBadge" class="hidden bg-cyan-600/30 border border-cyan-400 text-cyan-200 text-xs px-2.5 py-1 rounded-full font-bold">
-                            🏷️ Cupón Activo: Gacha a 1 P¥
-                        </div>
-                        <div id="activeDebtBadge" class="hidden bg-red-600/30 border border-red-400 text-red-200 text-xs px-2.5 py-1 rounded-full font-bold">
-                            🏦 Deuda Celedón: -7 P¥ al final (o -3 PV)
-                        </div>
+                        <span id="activeTicketBadge" class="hidden bg-emerald-600/30 border border-emerald-400 text-emerald-200 text-[10px] px-2 py-0.5 rounded-full font-bold">🎟️ Ticket Safari</span>
+                        <span id="activeDiscountBadge" class="hidden bg-cyan-600/30 border border-cyan-400 text-cyan-200 text-[10px] px-2 py-0.5 rounded-full font-bold">🏷️ Gacha 1 P¥</span>
+                        <span id="activeDebtBadge" class="hidden bg-red-600/30 border border-red-400 text-red-200 text-[10px] px-2 py-0.5 rounded-full font-bold">🏦 Deuda -7 P¥</span>
                     </div>
 
-                    <div class="flex items-center gap-1.5" id="viewPlayerSwitcher"></div>
+                    <!-- Tus 3 Objetivos Secretos en píldoras compactas (sin ruido visual) -->
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <span id="gloriaWildcardSelectorWrap" class="hidden"></span>
+                        <div id="playerObjectivesContainer" class="flex flex-wrap items-center gap-1.5"></div>
+                        <div id="viewPlayerSwitcher" class="hidden"></div>
+                    </div>
                 </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                <!-- Zona de Componentes Físicos: Pokéballs + Capturas a la izquierda | Mano TCG a la derecha -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center">
                     
-                    <div class="lg:col-span-7 flex flex-col gap-3">
-                        <div class="bg-slate-950/90 border border-slate-700 rounded-xl p-3">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="font-pixel text-[10px] text-yellow-400">
-                                    <i class="fas fa-grip-horizontal mr-1"></i> STAND DE POKÉBALLS EN BANDEJA (<span id="trayUnoccupiedCount">0</span>)
+                    <div class="lg:col-span-6 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <!-- Bandeja de Pokéballs Libres -->
+                        <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-2.5">
+                            <div class="flex items-center justify-between mb-1.5">
+                                <span class="font-pixel text-[9px] text-yellow-400">
+                                    🔴 BANDEJA BALLS (<span id="trayUnoccupiedCount">0</span>)
                                 </span>
-                                <span class="text-[11px] text-slate-400">
-                                    <i class="fas fa-shield-alt text-blue-400 mr-1"></i> La <strong>Peso Ball</strong> protege a sus 2 vecinas adyacentes
-                                </span>
+                                <span class="text-[9px] text-slate-400" title="La Peso Ball protege a sus 2 vecinas">🛡️ Peso Ball protege vecinas</span>
                             </div>
-                            <div id="playerCapsuleStand" class="flex items-center gap-2 overflow-x-auto py-2 px-1 min-h-[86px]"></div>
+                            <div id="playerCapsuleStand" class="flex items-center gap-2 overflow-x-auto py-1.5 px-1 min-h-[96px]"></div>
                         </div>
 
-                        <div class="bg-slate-950/90 border border-slate-700 rounded-xl p-3">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="font-pixel text-[10px] text-emerald-400">
-                                    <i class="fas fa-trophy mr-1"></i> FILA DE TROFEOS: POKÉMON CAPTURADOS (<span id="trayCapturedCount">0</span>)
+                        <!-- Trofeos: Pokémon Capturados -->
+                        <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-2.5">
+                            <div class="flex items-center justify-between mb-1.5">
+                                <span class="font-pixel text-[9px] text-emerald-400">
+                                    🏆 CAPTURADOS (<span id="trayCapturedCount">0</span>)
                                 </span>
-                                <span class="text-[11px] text-slate-400">
-                                    Las Pokéballs ocupadas siguen sumando sus PV, pasivas y objetivos
-                                </span>
+                                <span class="text-[9px] text-slate-400">Inmunes a Mercado Negro</span>
                             </div>
-                            <div id="playerTrophyRow" class="flex items-center gap-2.5 overflow-x-auto py-1 min-h-[115px]"></div>
+                            <div id="playerTrophyRow" class="flex items-center gap-2 overflow-x-auto py-1.5 px-1 min-h-[96px]"></div>
                         </div>
                     </div>
 
-                    <div class="lg:col-span-5 flex flex-col gap-3">
-                        <div class="bg-slate-950/90 border border-slate-700 rounded-xl p-3">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="font-pixel text-[10px] text-cyan-400">
-                                    <i class="fas fa-hand-sparkles mr-1"></i> MANO DE CARTAS DE OBJETO (<span id="handCountLabel">0</span>)
-                                </span>
-                                <span class="text-[10px] text-slate-400">Límite robo normal: 3</span>
-                            </div>
-                            <div id="playerHandContainer" class="grid grid-cols-1 sm:grid-cols-3 gap-2 min-h-[115px]"></div>
+                    <!-- Mano de Cartas Estilo Hearthstone / Slay the Spire -->
+                    <div class="lg:col-span-6 flex flex-col items-center justify-end relative">
+                        <div class="text-[9px] font-pixel text-cyan-400/80 mb-0.5">
+                            🃏 TU MANO (<span id="handCountLabel">0</span>/3) — PASA EL RATÓN PARA AMPLIAR
                         </div>
-
-                        <div class="bg-slate-950/90 border border-slate-700 rounded-xl p-3">
-                            <div class="flex items-center justify-between mb-2">
-                                <span class="font-pixel text-[10px] text-amber-400">
-                                    <i class="fas fa-bullseye mr-1"></i> TUS 3 OBJETIVOS SECRETOS
-                                </span>
-                                <span id="gloriaWildcardSelectorWrap" class="hidden"></span>
-                            </div>
-                            <div id="playerObjectivesContainer" class="space-y-1.5"></div>
-                        </div>
+                        <div id="playerHandContainer" class="tcg-hand-container w-full"></div>
                     </div>
 
                 </div>
@@ -1032,11 +1006,24 @@
             </div>
 
             <div class="flex-1 overflow-y-auto space-y-4 pr-1 text-xs leading-relaxed">
-                
+			
+                <div class="bg-slate-950 border-2 border-yellow-400/80 rounded-xl p-4 space-y-2 shadow-lg">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="font-pixel text-xs text-yellow-300 bg-yellow-500/20 px-2.5 py-1 rounded border border-yellow-400/50">v2.13 — NUEVO TAPETE DE MESA Y REDUCCIÓN DE RUIDO VISUAL</span>
+                        <span class="text-yellow-400 font-bold">Version actual</span>
+                    </div>
+                    <ul class="space-y-1.5 text-slate-200 list-disc list-inside pt-1">
+                        <li><strong>Tablero estilo juego de mesa real:</strong> Rediseño completo del tapete central, eliminando el ruido visual excesivo y unificando los elementos tácticos clave.</li>
+                        <li><strong>Mazos 3D interactivos:</strong> Incorporación visual de los mazos reales animados (Safari, Efectos/Trampas y Descartes) directamente sobre el tapete central con contadores dinámicos.</li>
+                        <li><strong>Gestión de rivales optimizada:</strong> Las cartas de mano y objetivos de los rivales se mantienen ocultos y privados, permitiendo hacer clic en sus tarjetas para inspeccionar detalladamente sus bandejas y trofeos en una ventana modal limpia.</li>
+                        <li><strong>Optimización de la barra superior:</strong> Integración del reproductor musical compacto directamente entre el título y los indicadores de ronda.</li>
+                        <li><strong>Corrección del flujo de turnos:</strong> Solucionado el aviso persistente de "Turno incorrecto" al permitir que las IAs ejecuten sus acciones de cartas sin interferir con la vista local del jugador.</li>
+                    </ul>
+                </div>
                 <div class="bg-slate-950 border-2 border-emerald-400/70 rounded-xl p-4 space-y-2">
                     <div class="flex items-center justify-between gap-2">
                         <span class="font-pixel text-xs text-emerald-300 bg-emerald-500/20 px-2.5 py-1 rounded border border-emerald-400/50">v2.12 — ONLINE AUTOMÁTICO SIN TURN</span>
-                        <span class="text-emerald-400 font-bold">Última Versión</span>
+                        <span class="text-emerald-400 font-bold">Versión anterior</span>
                     </div>
                     <ul class="space-y-1.5 text-slate-200 list-disc list-inside pt-1">
                         <li><strong>Sin configuración:</strong> eliminados los campos y credenciales TURN; ningún jugador debe crear cuentas ni introducir claves.</li>
@@ -1065,7 +1052,7 @@
                 <div class="bg-slate-950 border-2 border-cyan-400/70 rounded-xl p-4 space-y-2">
                     <div class="flex items-center justify-between gap-2">
                         <span class="font-pixel text-xs text-cyan-300 bg-cyan-500/20 px-2.5 py-1 rounded border border-cyan-400/50">v2.10 — REPARACIÓN DE CONEXIÓN ONLINE</span>
-                        <span class="text-emerald-400 font-bold">Última Versión</span>
+                        <span class="text-emerald-400 font-bold">Versión anterior</span>
                     </div>
                     <ul class="space-y-1.5 text-slate-200 list-disc list-inside pt-1">
                         <li><strong>Señalización HTTPS explícita:</strong> PeerJS usa el servidor oficial en el puerto 443 con TLS, evitando depender de la detección automática del protocolo.</li>

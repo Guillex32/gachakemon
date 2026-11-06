@@ -112,6 +112,126 @@
         .animate-bingo-glow {
             animation: bingoBurstPulse 1.6s ease-in-out infinite;
         }
+		/* --- ESTILOS TCG AVANZADOS (HEARTHSTONE / SLAY THE SPIRE) --- */
+/* --- TAPETE Y MAZOS FÍSICOS DE JUEGO DE MESA --- */
+        .board-table-mat {
+            background: radial-gradient(ellipse at center, #162436 0%, #0b1320 100%);
+            box-shadow: inset 0 0 40px rgba(0,0,0,0.85), 0 8px 24px rgba(0,0,0,0.6);
+        }
+        .physical-deck {
+            width: 86px;
+            height: 118px;
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            user-select: none;
+        }
+        .physical-deck:hover {
+            transform: translateY(-6px) scale(1.04);
+        }
+        .physical-deck-card {
+            width: 100%;
+            height: 100%;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #475569;
+            background: linear-gradient(145deg, #1e293b 0%, #0f172a 100%);
+            box-shadow: 
+                0 3px 0 #334155,
+                0 6px 0 #1e293b,
+                0 9px 0 #0f172a,
+                0 12px 18px rgba(0,0,0,0.75);
+        }
+        .deck-pokemon .physical-deck-card {
+            border-color: #10b981;
+            background: radial-gradient(circle at top, #064e3b 0%, #0f172a 85%);
+        }
+        .deck-effects .physical-deck-card {
+            border-color: #38bdf8;
+            background: radial-gradient(circle at top, #0c4a6e 0%, #0f172a 85%);
+        }
+        .deck-discard .physical-deck-card {
+            border-color: #f59e0b;
+            background: rgba(15, 23, 42, 0.75);
+        }
+
+        /* --- MANO TCG EN ABANICO (HEARTHSTONE / SLAY THE SPIRE) --- */
+        .tcg-hand-container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            padding: 18px 8px 4px 8px;
+            min-height: 165px;
+            perspective: 1000px;
+        }
+        .tcg-card {
+            width: 122px;
+            height: 154px;
+            margin: 0 -10px;
+            background: linear-gradient(160deg, #1e293b 0%, #090d16 100%);
+            border: 2px solid #38bdf8;
+            border-radius: 12px;
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            cursor: pointer;
+            transform-origin: bottom center;
+            transition: transform 0.22s cubic-bezier(0.2, 0.85, 0.3, 1.1), box-shadow 0.22s ease, margin 0.22s ease;
+            box-shadow: -4px 6px 16px rgba(0,0,0,0.75);
+        }
+		.tcg-card:hover {
+            transform: translateY(-28px) scale(1.18) rotate(0deg) !important;
+            margin: 0 12px;
+            box-shadow: 0 20px 35px rgba(56, 189, 248, 0.4), 0 0 0 2px #fde047;
+            border-color: #fde047;
+            z-index: 60 !important;
+        }
+        .tcg-card.card-trap {
+            border-color: #ef4444;
+            background: linear-gradient(145deg, #2b0b0b 0%, #0f172a 100%);
+        }
+        .tcg-card.card-trap:hover {
+            box-shadow: 0 18px 35px rgba(239, 68, 68, 0.35), 0 0 0 2px #f87171;
+            border-color: #f87171;
+        }
+        @keyframes drawCardAnim {
+            0% { transform: translate(-140px, -180px) scale(0.2) rotate(-15deg); opacity: 0; }
+            60% { transform: translate(15px, 15px) scale(1.05) rotate(3deg); opacity: 1; }
+            100% { transform: translate(0, 0) scale(1) rotate(0deg); opacity: 1; }
+        }
+        .animate-draw-card {
+            animation: drawCardAnim 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        @keyframes trapFlipAnim {
+            0% { transform: rotateY(0deg) scale(1); }
+            50% { transform: rotateY(90deg) scale(1.15); filter: brightness(1.5); }
+            100% { transform: rotateY(180deg) scale(1); }
+        }
+        .animate-trap-flip {
+            animation: trapFlipAnim 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-style: preserve-3d;
+        }
+        .deck-pile-badge {
+            background: rgba(15, 23, 42, 0.9);
+            border: 2px solid #475569;
+            border-radius: 10px;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .deck-pile-badge:hover {
+            border-color: #38bdf8;
+            box-shadow: 0 0 12px rgba(56, 189, 248, 0.25);
+            transform: translateY(-2px);
+        }
     `;
     document.head.appendChild(style);
 })();
@@ -1127,7 +1247,7 @@ const OnlineManager = {
 					iceServers: [
 						{ urls: 'stun:stun.l.google.com:19302' },
 						{ urls: 'stun:stun1.l.google.com:19302' },
-						{ urls: 'stun:stun2.l.google.com:19302' }
+						{ urls: 'stun:stun2.l.google.com:19302' },
 						{ urls: 'stun:stun.stunprotocol.org:3478' }
 					]
 				}
@@ -1731,7 +1851,8 @@ const ScoringEngine = {
 const GameController = {
     apagonQueue: [],
 
-    resolveApagonForAllPlayers() {
+	resolveApagonForAllPlayers() {
+        // Descarte automático para las IAs que tengan cartas en mano
         this.state.players.forEach(p => {
             if (p.isAI && p.hand.length > 0) {
                 const disc = p.hand.pop();
@@ -1739,6 +1860,8 @@ const GameController = {
                 this.addLog(`⚡ Apagón: ${p.name} (IA) descarta "${disc.name}".`, 'text-amber-300');
             }
         });
+
+        // Generar la cola de jugadores humanos que deben elegir qué carta descartar
         if (this.state.mode === 'online') {
             this.state.pendingApagonPlayerIds = this.state.players
                 .filter(player => !player.isAI && player.hand.length > 0)
@@ -1751,6 +1874,7 @@ const GameController = {
             if (this.apagonQueue.length > 0) this.openNextApagonModal();
             return;
         }
+
         this.apagonQueue = this.state.players
             .filter(p => !p.isAI && p.hand.length > 0)
             .map(p => p.idx);
@@ -2495,8 +2619,16 @@ const GameController = {
             }
         }
 
+        // Disparar alerta visual con animación de giro
         if (!player.isAI) {
-            UI.showAlert(`¡CARTA DE TRAMPA: ${trap.name.toUpperCase()}!`, trap.desc, trap.trapPositive ? '🍀' : '🚨');
+            UI.showAlert(
+                `¡CARTA DE TRAMPA REVELADA!`, 
+                `<div class="animate-trap-flip p-3 my-2 bg-red-950/60 border-2 border-red-500 rounded-xl">
+                    <div class="font-pixel text-xs text-red-300 mb-1">${trap.name}</div>
+                    <div class="text-xs text-white">${trap.desc}</div>
+                </div>`, 
+                trap.trapPositive ? '🍀' : '🚨'
+            );
         }
     },
 
@@ -2594,31 +2726,37 @@ const GameController = {
         return ball;
     },
 
-    discardCardFromHand(handIdx) {
-        if (!this.requireLocalControl(this.state?.turnPlayerIdx)) return;
-        if (this.state.turnPlayerIdx !== this.viewedPlayerIdx) {
-            UI.showAlert('Turno Incorrecto', 'Solo puedes descartar cartas de tu mano durante tu propio turno activo.', '⚠️');
-            return;
-        }
-        const player = this.state.players[this.state.turnPlayerIdx];
-        if (player.isAI) return;
-        const card = player.hand.splice(handIdx, 1)[0];
-        if (!card) return;
-        AudioEngine.sfxClick();
-        this.state.effectDiscard.push(card);
-        this.addLog(`🗑️ ${player.name} descarta tácticamente "${card.name}".`, 'text-slate-400');
-        this.syncAndRender();
-    },
+	discardCardFromHand(handIdx) {
+			if (!this.requireLocalControl(this.state?.turnPlayerIdx)) return;
+			const player = this.state.players[this.state.turnPlayerIdx];
+			if (!player || player.isAI) return;
+			if (this.state.mode !== 'online' && this.state.turnPlayerIdx !== this.viewedPlayerIdx) {
+				UI.showAlert('Turno Incorrecto', 'Solo puedes descartar cartas de tu mano durante tu propio turno activo.', '⚠️');
+				return;
+			}
+			const card = player.hand.splice(handIdx, 1)[0];
+			if (!card) return;
+			AudioEngine.sfxClick();
+			this.state.effectDiscard.push(card);
+			this.addLog(`🗑️ ${player.name} descarta tácticamente "${card.name}".`, 'text-slate-400');
+			this.syncAndRender();
+		},
 
-    playObjectCard(handIdx) {
-        if (!this.requireLocalControl(this.state?.turnPlayerIdx)) return;
-        if (this.state.turnPlayerIdx !== this.viewedPlayerIdx) {
-            UI.showAlert('Turno Incorrecto', 'Solo puedes jugar cartas de objeto durante tu propio turno activo.', '⚠️');
-            return;
-        }
-        const player = this.state.players[this.state.turnPlayerIdx];
-        const card = player.hand[handIdx];
-        if (!card) return;
+	playObjectCard(handIdx) {
+			const player = this.state?.players?.[this.state.turnPlayerIdx];
+			if (!player) return;
+
+			// Solo validar vista local si quien juega es un humano
+			if (!player.isAI) {
+				if (!this.requireLocalControl(this.state.turnPlayerIdx)) return;
+				if (this.state.mode !== 'online' && this.state.turnPlayerIdx !== this.viewedPlayerIdx) {
+					UI.showAlert('Turno Incorrecto', 'Solo puedes jugar cartas de objeto durante tu propio turno activo.', '⚠️');
+					return;
+				}
+			}
+
+			const card = player.hand[handIdx];
+			if (!card) return;
 
         if (card.timing === 'safari' || card.timing === 'safari_reaction') {
             UI.showAlert('Carta de Fase de Safari', `"${card.name}" se utiliza directamente durante la Fase de Captura Safari.`, '🌿');
@@ -4154,12 +4292,20 @@ const UI = {
         this.renderCatalogModal();
     },
 
-    renderAll() {
+	renderAll() {
         const st = GameController.state;
         if (!st) return;
         if (st.mode === 'online') {
             const ownIndex = OnlineManager.getLocalPlayerIndex(st);
             if (ownIndex >= 0) GameController.viewedPlayerIdx = ownIndex;
+        }
+
+        // Actualizar contadores de mazos y descartes en todos los modos (Solo, Local y Online)
+		document.getElementById('deckPokemonCount').textContent = st.pokemonDeck.length;
+        document.getElementById('deckEffectCount').textContent = st.effectDeck.length;
+        const discardCounter = document.getElementById('deckDiscardCount');
+        if (discardCounter) {
+            discardCounter.textContent = st.effectDiscard ? st.effectDiscard.length : 0;
         }
 
         const remSafari = 3 - ((st.round - 1) % 3);
@@ -4209,42 +4355,141 @@ const UI = {
         this.renderActivePlayerBoard();
     },
 
-    renderRivalsBar() {
-        const st = GameController.state;
-        const rivalsBar = document.getElementById('rivalsBar');
-        const otherPlayers = st.players.filter((_, idx) => idx !== GameController.viewedPlayerIdx);
+	renderRivalsBar() {
+			const st = GameController.state;
+			const rivalsBar = document.getElementById('rivalsBar');
+			const otherPlayers = st.players.filter((_, idx) => idx !== GameController.viewedPlayerIdx);
 
-        rivalsBar.innerHTML = otherPlayers.map(p => {
-            const isTurn = st.turnPlayerIdx === p.idx;
-            const livePV = ScoringEngine.calculateBreakdown(p, false).totalPV;
-            const hasTicket = st.safariHolderIdx === p.idx;
-            const canSwitch = st.mode !== 'online';
-            return `
-            <div ${canSwitch ? `onclick="GameController.viewedPlayerIdx = ${p.idx}; UI.renderAll()"` : ''}
-                 class="${canSwitch ? 'cursor-pointer' : 'cursor-default'} pixel-box p-2.5 transition ${isTurn ? 'border-yellow-400 bg-slate-800' : 'bg-slate-900/90 opacity-90'}">
-                <div class="flex items-center justify-between mb-1.5">
-                    <div class="flex items-center gap-1.5">
-                        <span class="font-pixel text-[10px] ${isTurn ? 'text-yellow-400' : 'text-white'}">${escapeHTML(p.name)}</span>
-                        ${hasTicket ? '<span title="Posee el Ticket Safari">🎟️</span>' : ''}
-                    </div>
-                    <div class="flex items-center gap-2 text-xs font-bold">
-                        <span class="text-yellow-300"><i class="fas fa-coins mr-0.5"></i>${p.yen} P¥</span>
-                        <span class="text-purple-300"><i class="fas fa-star mr-0.5"></i>${livePV} PV</span>
-                    </div>
-                </div>
-                <div class="flex items-center justify-between text-[11px] text-slate-400">
-                    <span>Balls: <strong class="text-white">${p.tray.length}</strong> libres</span>
-                    <span>Capturas: <strong class="text-emerald-400">${p.captured.length}</strong></span>
-                    <span>Mano: <strong class="text-cyan-300">${p.hand.length}</strong></span>
-                </div>
-                <div class="flex items-center gap-1 mt-1.5 overflow-x-auto py-0.5">
-                    ${p.tray.slice(0, 8).map(b => ArtRenderer.renderBallSVG(b.typeId, 20)).join('')}
-                    ${p.tray.length === 0 ? '<span class="text-[10px] text-slate-600 italic">Bandeja vacía</span>' : ''}
-                </div>
-            </div>`;
-        }).join('');
-    },
+			rivalsBar.innerHTML = otherPlayers.map(p => {
+				const isTurn = st.turnPlayerIdx === p.idx;
+				const livePV = ScoringEngine.calculateBreakdown(p, false).totalPV;
+				const hasTicket = st.safariHolderIdx === p.idx;
+				return `
+				<div onclick="UI.inspectRivalBoard(${p.idx})"
+					 title="Haz clic para inspeccionar la mesa de ${escapeHTML(p.name)}"
+					 class="cursor-pointer pixel-box px-3 py-2 transition hover:scale-[1.01] ${isTurn ? 'border-yellow-400 bg-slate-800/95 ring-2 ring-yellow-400/30' : 'bg-slate-900/90 opacity-90'}">
+					<div class="flex items-center justify-between">
+						<div class="flex items-center gap-1.5">
+							${isTurn ? '<span class="w-2 h-2 rounded-full bg-yellow-400 animate-ping"></span>' : ''}
+							<span class="font-pixel text-[10px] ${isTurn ? 'text-yellow-400' : 'text-white'}">${escapeHTML(p.name)}</span>
+							${hasTicket ? '<span class="text-xs" title="Posee el Ticket Safari">🎟️</span>' : ''}
+						</div>
+						<div class="flex items-center gap-2 text-xs font-bold">
+							<span class="text-yellow-300">🪙 ${p.yen}</span>
+							<span class="text-purple-300">⭐ ${livePV} PV</span>
+						</div>
+					</div>
+					<div class="flex items-center justify-between mt-1.5 pt-1 border-t border-slate-800 text-[10px] text-slate-300">
+						<div class="flex items-center gap-1">
+							${p.tray.slice(0, 6).map(b => ArtRenderer.renderBallSVG(b.typeId, 16)).join('')}
+							${p.tray.length > 6 ? `<span class="text-[9px] text-cyan-300">+${p.tray.length - 6}</span>` : ''}
+							${p.tray.length === 0 ? '<span class="text-slate-500 italic">0 Balls</span>' : ''}
+						</div>
+						<div class="flex items-center gap-2">
+							<span title="Pokémon Capturados">🏆 <strong class="text-emerald-400">${p.captured.length}</strong></span>
+							<span title="Cartas ocultas en mano">🎴 <strong class="text-cyan-300">${p.hand.length}</strong></span>
+							<span class="text-[9px] text-yellow-400 underline">Ver mesa</span>
+						</div>
+					</div>
+				</div>`;
+			}).join('');
+	},
 
+	inspectRivalBoard(playerIdx) {
+		AudioEngine.sfxClick();
+		const st = GameController.state;
+		const p = st?.players?.[playerIdx];
+		if (!p) return;
+		const bd = ScoringEngine.calculateBreakdown(p, false);
+
+		document.getElementById('interactionModalTitle').textContent = `🔍 MESA DE ${p.name.toUpperCase()} (VISTA PÚBLICA)`;
+		document.getElementById('interactionModalDesc').textContent = `Puedes inspeccionar sus Pokéballs libres y Pokémon capturados. Sus cartas en mano y objetivos secretos son privados.`;
+
+		const trayHtml = p.tray.length === 0
+			? `<div class="text-xs text-slate-500 italic py-3">Bandeja vacía.</div>`
+			: `<div class="flex flex-wrap gap-2">${p.tray.map((b, bIdx) => {
+				const prot = GameController.isBallProtectedByPeso(p, bIdx);
+				return `
+				<div onclick="UI.inspectBall('${b.typeId}')" class="cursor-pointer bg-slate-900 border ${prot ? 'border-blue-400' : 'border-slate-700'} rounded-lg p-2 flex flex-col items-center min-w-[85px]">
+					${ArtRenderer.renderBallSVG(b.typeId, 34)}
+					<span class="text-[10px] font-bold text-white mt-1">${b.name}</span>
+					<span class="text-[9px] ${prot ? 'text-blue-300 font-bold' : 'text-slate-400'}">${prot ? '🛡️ Protegida' : `${b.pv} PV`}</span>
+				</div>`;
+			}).join('')}</div>`;
+
+		const capHtml = p.captured.length === 0
+			? `<div class="text-xs text-slate-500 italic py-3">Ningún Pokémon capturado todavía.</div>`
+			: `<div class="flex flex-wrap gap-2">${p.captured.map(c => `
+				<div onclick="UI.inspectPokemon(${c.pokemon.dexNum})" class="cursor-pointer bg-slate-900 border border-emerald-600/50 rounded-lg p-2 flex items-center gap-2">
+					<img src="${c.pokemon.spriteUrl}" class="w-12 h-12 bg-slate-950 rounded">
+					<div>
+						<div class="text-xs font-bold text-white">${c.pokemon.name}</div>
+						<div class="text-[10px] text-emerald-400">+${c.capturePV} PV (${c.ball.name})</div>
+					</div>
+				</div>`).join('')}</div>`;
+
+		const hiddenHandHtml = Array.from({ length: p.hand.length }, () => `
+			<div class="w-12 h-16 rounded-lg border-2 border-cyan-500/50 bg-slate-900 flex items-center justify-center shadow">
+				<i class="fas fa-question text-cyan-500/50 text-sm"></i>
+			</div>`).join('');
+
+		document.getElementById('interactionModalContent').innerHTML = `
+			<div class="space-y-3 text-xs">
+				<div class="flex flex-wrap items-center justify-between gap-2 bg-slate-950 p-3 rounded-xl border border-slate-800">
+					<span>🪙 Reserva: <strong class="text-yellow-300">${p.yen} P¥</strong></span>
+					<span>⭐ Puntos visibles: <strong class="text-purple-300">${bd.totalPV - bd.objectivesPV} PV</strong> (+Objetivos ocultos)</span>
+					<span>🎴 Mano: <strong class="text-cyan-300">${p.hand.length} carta(s) boca abajo</strong></span>
+				</div>
+				<div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+					<div class="font-pixel text-[10px] text-yellow-400 mb-2">🔴 BANDEJA DE POKÉBALLS (${p.tray.length})</div>
+					${trayHtml}
+				</div>
+				<div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
+					<div class="font-pixel text-[10px] text-emerald-400 mb-2">🏆 FILA DE TROFEOS (${p.captured.length})</div>
+					${capHtml}
+				</div>
+				<div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+					<div>
+						<div class="font-pixel text-[10px] text-slate-400">🔒 INFORMACIÓN SECRETA DEL RIVAL</div>
+						<div class="text-[11px] text-slate-500 mt-0.5">3 Objetivos Secretos ocultos y ${p.hand.length} cartas en mano</div>
+					</div>
+					<div class="flex gap-1.5">${hiddenHandHtml}</div>
+				</div>
+			</div>`;
+		this.openModal('modalInteraction');
+	},
+
+	openLogModal() {
+		AudioEngine.sfxClick();
+		const st = GameController.state;
+		if (!st) return;
+		document.getElementById('interactionModalTitle').textContent = `📜 REGISTRO DE PARTIDA (RONDA ${st.round})`;
+		document.getElementById('interactionModalDesc').textContent = `Historial cronológico de acciones, giros de gachapon y eventos:`;
+		document.getElementById('interactionModalContent').innerHTML = `
+			<div class="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1.5 font-vt text-base max-h-[50vh] overflow-y-auto">
+				${st.logs.map(l => `<div class="${l.colorClass} border-b border-slate-900 pb-1">[R${l.round}] ${l.text}</div>`).join('')}
+			</div>`;
+		this.openModal('modalInteraction');
+	},
+
+	inspectDiscardPile() {
+		AudioEngine.sfxClick();
+		const st = GameController.state;
+		if (!st) return;
+		document.getElementById('interactionModalTitle').textContent = `🗑️ PILA DE DESCARTES (${st.effectDiscard.length})`;
+		document.getElementById('interactionModalDesc').textContent = `Cartas de Objeto y Trampas jugadas o descartadas:`;
+		document.getElementById('interactionModalContent').innerHTML = st.effectDiscard.length === 0
+			? `<div class="text-xs text-slate-500 italic py-4 text-center">La pila de descartes está vacía.</div>`
+			: st.effectDiscard.slice().reverse().map(c => `
+				<div class="bg-slate-950 border border-slate-800 p-2.5 rounded-lg flex items-center justify-between">
+					<div>
+						<span class="font-bold text-xs text-white"><i class="fas ${c.icon} text-cyan-400 mr-1"></i>${c.name}</span>
+						<div class="text-[11px] text-slate-400 mt-0.5">${formatCardText(c.desc)}</div>
+					</div>
+					<span class="text-[10px] px-2 py-0.5 rounded bg-slate-900 text-slate-400">${c.subtype}</span>
+				</div>`).join('');
+		this.openModal('modalInteraction');
+	},
     renderTurnControls() {
         const st = GameController.state;
         const activePlayer = st.players[st.turnPlayerIdx];
@@ -4417,38 +4662,43 @@ const UI = {
         document.getElementById('handCountLabel').textContent = p.hand.length;
         const handEl = document.getElementById('playerHandContainer');
         if (p.hand.length === 0) {
-            handEl.innerHTML = `<div class="col-span-3 text-xs text-slate-500 italic py-6 text-center">Sin cartas en mano. Robarás hasta tener 3 al inicio de tu próximo turno.</div>`;
+            handEl.innerHTML = `<div class="col-span-3 text-xs text-slate-500 italic py-6 text-center">Sin cartas en mano. Robarás hasta tener 3 al inicio de tu turno.</div>`;
         } else {
-            handEl.className = 'grid grid-cols-1 md:grid-cols-3 gap-2.5 min-h-[145px]';
+            handEl.className = 'tcg-hand-container';
+            const totalCards = p.hand.length;
             handEl.innerHTML = p.hand.map((c, hIdx) => {
-                const badgeColor = c.timing === 'safari' || c.timing === 'safari_reaction'
-                    ? 'bg-emerald-950 text-emerald-300 border-emerald-600'
-                    : (c.timing === 'reaction' ? 'bg-amber-950 text-amber-300 border-amber-600' : 'bg-cyan-950 text-cyan-300 border-cyan-600');
+                const isTrap = c.subtype === 'Trampa';
+                // Calcular rotación en abanico al estilo Slay the Spire / Hearthstone
+                const offsetFromCenter = hIdx - (totalCards - 1) / 2;
+                const rotAngle = offsetFromCenter * 5; // 5 grados de inclinación por carta
+                const translateY = Math.abs(offsetFromCenter) * 6; // Ligero arco vertical
+
                 return `
-                <div class="bg-slate-900 border-2 border-cyan-500/50 hover:border-cyan-400 rounded-xl p-3 flex flex-col justify-between transition">
+                <div class="tcg-card ${isTrap ? 'card-trap animate-draw-card' : 'animate-draw-card'}"
+                     style="transform: rotate(${rotAngle}deg) translateY(${translateY}px);">
                     <div>
-                        <div class="flex items-center justify-between gap-1 mb-1.5">
-                            <span class="text-[9px] font-bold px-1.5 py-0.5 rounded border ${badgeColor}">
-                                <i class="fas ${c.icon} mr-1"></i>${c.phaseTag || 'OBJETO'}
+                        <div class="flex items-center justify-between gap-1 mb-1">
+                            <span class="text-[9px] font-bold px-1.5 py-0.5 rounded ${isTrap ? 'bg-red-950 text-red-300 border border-red-700' : 'bg-cyan-950 text-cyan-300 border border-cyan-700'}">
+                                <i class="fas ${c.icon} mr-0.5"></i>${c.subtype.toUpperCase()}
                             </span>
-                            <div class="flex items-center gap-1.5">
+                            <div class="flex items-center gap-1">
                                 <button onclick="UI.inspectEffectCard('${c.id}')" class="text-slate-400 hover:text-cyan-300 text-xs" title="Ampliar carta">
                                     <i class="fas fa-expand"></i>
                                 </button>
                                 ${isCurrentTurnPlayer ? `
-                                    <button onclick="GameController.discardCardFromHand(${hIdx})" class="text-slate-500 hover:text-red-400 text-xs" title="Descartar carta">
+                                    <button onclick="GameController.discardCardFromHand(${hIdx})" class="text-slate-500 hover:text-red-400 text-xs" title="Descartar">
                                         <i class="fas fa-trash-can"></i>
                                     </button>
                                 ` : ''}
                             </div>
                         </div>
-                        <div class="font-bold text-xs sm:text-sm text-white mb-1.5">${c.name}</div>
-                        <div class="card-rich-desc">${formatCardText(c.desc)}</div>
+                        <div class="font-bold text-xs text-white mb-1 leading-tight">${c.name}</div>
+                        <div class="text-[10px] text-slate-300 leading-snug line-clamp-4">${formatCardText(c.desc)}</div>
                     </div>
                     ${isCurrentTurnPlayer ? `
                         <button onclick="GameController.playObjectCard(${hIdx})"
-                                class="mt-2.5 bg-cyan-600 hover:bg-cyan-500 text-white font-pixel text-[9px] py-2 rounded-lg w-full shadow">
-                            USAR CARTA
+                                class="pixel-btn bg-cyan-600 hover:bg-cyan-500 text-white font-pixel text-[8px] py-1.5 px-1 rounded w-full shadow mt-1">
+                            USAR
                         </button>
                     ` : ''}
                 </div>`;
@@ -4470,21 +4720,17 @@ const UI = {
             gloriaWrap.classList.add('hidden');
         }
 
-        const countsForObj = ScoringEngine.countBallsByType(p);
-        document.getElementById('playerObjectivesContainer').innerHTML = p.objectives.map(o => {
-            const done = ScoringEngine.checkObjectiveCompleted(p, o.id, countsForObj);
-            return `
-            <div class="p-2.5 rounded-xl border-2 ${done ? 'border-emerald-500 bg-emerald-950/30' : 'border-slate-800 bg-slate-900'} flex items-center justify-between gap-3">
-                <div class="flex-1">
-                    <div class="flex items-center gap-2 mb-0.5">
-                        <span class="text-xs font-bold ${done ? 'text-emerald-300' : 'text-white'}">${done ? '✅ ' : '🎯 '}${o.name}</span>
-                        <span class="text-[10px] font-semibold text-amber-400/90">[${o.category}]</span>
-                    </div>
-                    <div class="text-xs text-slate-200 leading-snug">${formatCardText(o.desc)}</div>
-                </div>
-                <span class="font-pixel text-xs px-2.5 py-1 rounded bg-slate-950 border ${done ? 'text-emerald-400 border-emerald-500' : 'text-amber-400 border-amber-500/40'} shrink-0">+${o.pv} PV</span>
-            </div>`;
-        }).join('');
+		const countsForObj = ScoringEngine.countBallsByType(p);
+				document.getElementById('playerObjectivesContainer').innerHTML = p.objectives.map(o => {
+					const done = ScoringEngine.checkObjectiveCompleted(p, o.id, countsForObj);
+					return `
+					<button onclick="UI.showAlert('🎯 OBJETIVO SECRETO: ${o.name.toUpperCase()}', '${o.desc} (Recompensa: +${o.pv} PV)', '${done ? '✅' : '🎯'}')"
+							title="${o.desc}"
+							class="px-2.5 py-1 rounded-lg border text-[10px] font-bold flex items-center gap-1.5 transition hover:scale-105 ${done ? 'border-emerald-400 bg-emerald-950/60 text-emerald-300' : 'border-amber-500/40 bg-slate-950 text-slate-300 hover:border-amber-400'}">
+						<span>${done ? '✅' : '🎯'} ${o.name}</span>
+						<span class="font-pixel text-[9px] text-yellow-400">+${o.pv}PV</span>
+					</button>`;
+				}).join('');
     },
 
     renderSafariModal() {
