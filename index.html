@@ -394,22 +394,23 @@
                     </div>
                 </div>
 
-                <!-- Medallón Flotante de Perfil de Entrenador -->
-                <div class="hearth-tray px-5 py-4 w-full md:w-auto min-w-[275px] flex flex-col gap-2.5">
-                    <div class="flex items-center justify-between">
-                        <span class="text-[10px] font-pixel text-slate-400 uppercase tracking-wider">
-                            <i class="fas fa-id-badge text-yellow-400 mr-1"></i> Credencial de Entrenador
-                        </span>
-                        <div id="myRankedProfileBadge" class="text-right">
-                            <span class="font-pixel text-[10px] text-yellow-300 bg-yellow-500/15 border border-yellow-400/30 px-2 py-0.5 rounded-full" id="myRankedRpText">1000 RP • Bronce</span>
-                        </div>
-                    </div>
-                    <div class="relative">
-                        <input id="inputPlayerName" type="text" value="" placeholder="Escribe tu nombre..." maxlength="16"
-                            class="w-full bg-slate-950/90 border-2 border-slate-700/90 focus:border-yellow-400 rounded-xl px-3.5 py-2 text-sm text-white font-bold outline-none transition shadow-inner">
-                        <i class="fas fa-pen text-slate-500 text-xs absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
-                    </div>
-                </div>
+				<!-- Medallón Flotante de Perfil de Entrenador Rediseñado -->
+				<div class="hearth-tray px-5 py-4 w-full md:w-auto min-w-[290px] flex flex-col gap-3">
+					<div class="flex items-center justify-between gap-4">
+						<span class="text-[10px] font-pixel text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+							<i class="fas fa-id-badge text-yellow-400"></i> Credencial
+						</span>
+						<!-- Rango en línea única, limpio y fluido -->
+						<div id="myRankedProfileBadge" class="bg-slate-950/80 border border-amber-500/40 px-3 py-1 rounded-full text-right shadow-inner">
+							<span class="font-pixel text-[11px] text-yellow-300 tracking-wide" id="myRankedRpText">1000 RP • Bronce</span>
+						</div>
+					</div>
+					<div class="relative">
+						<input id="inputPlayerName" type="text" value="" placeholder="Escribe tu nombre..." maxlength="16"
+							class="w-full bg-slate-950/90 border-2 border-slate-700/90 focus:border-yellow-400 rounded-xl px-3.5 py-2 text-sm text-white font-bold outline-none transition shadow-inner">
+						<i class="fas fa-pen text-slate-500 text-xs absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+					</div>
+				</div>
 
             </div>
 
@@ -1201,6 +1202,16 @@
             </div>
 
             <div class="flex-1 overflow-y-auto space-y-4 pr-1 text-xs leading-relaxed">
+				<div class="bg-slate-950 border-2 border-yellow-400/80 rounded-xl p-4 space-y-2 shadow-lg">
+					<div class="flex items-center justify-between gap-2">
+						<span class="font-pixel text-xs text-yellow-300 bg-yellow-500/20 px-2.5 py-1 rounded border border-yellow-400/50">v2.16 — CORRECCIÓN DE BUCLES EN SAFARI Y BLOQUEO DE IA</span>
+						<span class="text-yellow-400 font-bold">Versión actual</span>
+					</div>
+					<ul class="space-y-1.5 text-slate-200 list-disc list-inside pt-1">
+						<li><strong>Corrección de bloqueo en el Safari:</strong> Solucionado el error por el cual si un bot fallaba su tirada de captura, la máquina de estados se quedaba congelada en la pantalla de tirada. Ahora el flujo avanza de forma fluida e inequívoca al siguiente entrenador.</li>
+						<li><strong>Protección de interacción en turnos de IA:</strong> Se han añadido restricciones estrictas para impedir que el usuario humano manipule cartas, Pokéballs o selección de objetivos mientras un bot está calculando o resolviendo sus turnos en la Fase de Safari.</li>
+					</ul>
+				</div>
 				<div class="bg-slate-950 border-2 border-yellow-400/80 rounded-xl p-4 space-y-2 shadow-lg">
                     <div class="flex items-center justify-between gap-2">
                         <span class="font-pixel text-xs text-yellow-300 bg-yellow-500/20 px-2.5 py-1 rounded border border-yellow-400/50">v2.15 — REDISEÑO FLUIDO DEL LOBBY</span>

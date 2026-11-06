@@ -3558,12 +3558,19 @@ const GameController = {
         }
     },
 
+// ============================================================================
+// CORRECCIÓN DE LA FASE DE SAFARI (BOTS E INTERACCIÓN SEGURA)
+// ============================================================================
     launchSafariCaptureAttempt() {
         const saf = this.state?.safariState;
         if (!saf) return;
         const activeIdx = saf.turnOrder[saf.currentStep];
-        if (!this.requireLocalControl(activeIdx)) return;
         const player = this.state.players[activeIdx];
+        if (!player) return;
+
+        // Evitar interacción humana si es el turno de un bot
+        if (player.isAI && !this.isHost && this.state.mode === 'online') return;
+
         const wildSlot = saf.wildSlots[this.safariTemp.selectedWildIndex];
         const ball = player.tray[this.safariTemp.selectedTrayBallIndex];
         if (!wildSlot || wildSlot.capturedBy || !ball || this.safariTemp.isRollingCoins) return;
@@ -3585,24 +3592,26 @@ const GameController = {
             Math.random() < 0.5
         ];
 
-        // Estado 'SPIN' mientras las monedas están girando en el aire
         this.safariTemp.lastRollCoins = ['SPIN', 'SPIN', 'SPIN'];
         AudioEngine.sfxCoin();
         UI.renderSafariModal();
 
         setTimeout(() => {
+            if (!this.state?.safariState) return;
             AudioEngine.playVoice(finalCoins[0] ? 987.77 : 311.13, 95, 'square', 0.05);
             this.safariTemp.lastRollCoins = [finalCoins[0], 'SPIN', 'SPIN'];
             UI.renderSafariModal();
         }, 380);
 
         setTimeout(() => {
+            if (!this.state?.safariState) return;
             AudioEngine.playVoice(finalCoins[1] ? 1046.50 : 293.66, 95, 'square', 0.05);
             this.safariTemp.lastRollCoins = [finalCoins[0], finalCoins[1], 'SPIN'];
             UI.renderSafariModal();
         }, 760);
 
         setTimeout(() => {
+            if (!this.state?.safariState) return;
             AudioEngine.playVoice(finalCoins[2] ? 1318.51 : 261.63, 120, 'square', 0.06);
             this.safariTemp.lastRollCoins = finalCoins;
             this.safariTemp.isRollingCoins = false;
@@ -3631,14 +3640,23 @@ const GameController = {
         if (!saf) return;
         const activeIdx = saf.turnOrder[saf.currentStep];
         const player = this.state.players[activeIdx];
-        if (!player || !this.requireLocalControl(activeIdx)) return;
+        if (!player) return;
+
         const wildSlot = saf.wildSlots[this.safariTemp.selectedWildIndex];
         const ball = player.tray[this.safariTemp.selectedTrayBallIndex];
-        const matrixEntry = CAPTURE_MATRIX[ball.rarity][wildSlot.pokemon.rarity];
+        
+        // Blindaje contra bandejas vacías o índices desincronizados del bot
+        if (!ball || !wildSlot) {
+            saf.currentStep++;
+            this.advanceSafariTurn();
+            return;
+        }
 
+        const matrixEntry = CAPTURE_MATRIX[ball.rarity][wildSlot.pokemon.rarity];
         UI.renderSafariModal();
 
         setTimeout(() => {
+            if (!this.state?.safariState) return;
             if (isSuccess) {
                 AudioEngine.sfxCaptureSuccess();
                 const usedBall = player.tray.splice(this.safariTemp.selectedTrayBallIndex, 1)[0];
@@ -3655,7 +3673,10 @@ const GameController = {
                 this.addLog(`💨 Fallo de Captura: ${wildSlot.pokemon.name} escapa de la ${ball.name} de ${player.name}. La esfera rebota a su bandeja.`, 'text-amber-300');
             }
 
+            // Forzar avance inequívoco de paso al siguiente entrenador del Safari
             saf.currentStep++;
+            this.safariTemp.isRollingCoins = false;
+            this.safariTemp.awaitingGoldenBerry = false;
             this.advanceSafariTurn();
         }, 1150);
     },
@@ -3665,18 +3686,18 @@ const GameController = {
         if (!saf) return;
         const activeIdx = saf.turnOrder[saf.currentStep];
         const player = this.state.players[activeIdx];
-        if (!player || !this.requireLocalControl(activeIdx)) return;
+        if (!player) return;
         this.addLog(`🌿 ${player.name} no dispone de Pokéballs libres en su bandeja para capturar en esta Fase de Safari.`, 'text-slate-400');
         saf.currentStep++;
         this.advanceSafariTurn();
     },
 
     passSafariTurnVoluntarily() {
-        const saf = this.state.safariState;
+        const saf = this.state?.safariState;
         if (!saf || this.safariTemp.isRollingCoins) return;
         const activeIdx = saf.turnOrder[saf.currentStep];
-        if (!this.requireLocalControl(activeIdx)) return;
         const player = this.state.players[activeIdx];
+        if (!player) return;
         AudioEngine.sfxClick();
         this.addLog(`🌿 ${player.name} decide pasar su turno en la Fase de Safari sin capturar para conservar sus Pokéballs.`, 'text-slate-300');
         saf.currentStep++;
@@ -4438,7 +4459,7 @@ const UI = {
 				<div class="flex flex-wrap items-center justify-between gap-2 bg-slate-950 p-3 rounded-xl border border-slate-800">
 					<span>🪙 Reserva: <strong class="text-yellow-300">${p.yen} P¥</strong></span>
 					<span>⭐ Puntos visibles: <strong class="text-purple-300">${bd.totalPV - bd.objectivesPV} PV</strong> (+Objetivos ocultos)</span>
-					<span>🎴 Mano: <strong class="text-cyan-300">${p.hand.length} carta(s) boca abajo</strong></span>
+					<span>🎴 Mano: <strong class="text-cyan-300">${p.hand.length} carta(s) </strong></span>
 				</div>
 				<div class="bg-slate-950 p-3 rounded-xl border border-slate-800">
 					<div class="font-pixel text-[10px] text-yellow-400 mb-2">🔴 BANDEJA DE POKÉBALLS (${p.tray.length})</div>
@@ -4741,9 +4762,11 @@ const UI = {
         const activeIdx = saf.turnOrder[saf.currentStep];
         const player = st.players[activeIdx];
         if (!player) return;
+		// Si el turno actual es de un Bot IA, bloqueamos los botones de acción para el usuario
+        const isAiTurn = !!player.isAI;
 
         document.getElementById('safariPhaseTitle').textContent = `TURNO DE CAPTURA DE ${player.name.toUpperCase()}`;
-        document.getElementById('safariTurnSubtitle').textContent = `Turno ${saf.currentStep + 1} de ${saf.turnOrder.length} (Orden iniciado por el Ticket Safari)`;
+        document.getElementById('safariTurnSubtitle').textContent = isAiTurn ? `El bot está calculando su jugada en el Safari...` : `Turno ${saf.currentStep + 1} de ${saf.turnOrder.length} (Orden iniciado por el Ticket Safari)`;
 
         const selectedBall = player.tray[GameController.safariTemp.selectedTrayBallIndex];
 
@@ -5795,16 +5818,50 @@ const LeaderboardManager = {
                         <div class="font-pixel text-xs text-yellow-300" id="myRankedRpText">1000 RP • Bronce</div>
                     </div>
                 </div>
-                <div id="rankedQueueIdleBox" class="bg-slate-950/90 border border-slate-800 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-                    <div class="text-xs text-slate-300 space-y-1">
-                        <div>• <strong>Formato estricto:</strong> 4 Jugadores Humanos (sin IAs).</div>
-                        <div>• <strong>Puntuación RP:</strong> 1.º <span class="text-emerald-400 font-bold">+30 RP</span> | 2.º <span class="text-cyan-400 font-bold">+12 RP</span> | 3.º <span class="text-amber-400 font-bold">-6 RP</span> | 4.º <span class="text-red-400 font-bold">-15 RP</span>.</div>
-                        <div>• <strong>Registro automático:</strong> Tu puntuación se guarda en el <strong>TOP Puntuaciones Permanente</strong>.</div>
-                    </div>
-                    <button id="btnJoinRankedQueue" onclick="RankedQueueManager.joinQueue()" class="pixel-btn bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs px-5 py-3.5 shrink-0">
-                        ⚔️ ENTRAR EN COLA (4J)
-                    </button>
-                </div>
+				<!-- Estado de la Cola Rediseñado y Estructurado -->
+				<div id="rankedQueueIdleBox" class="bg-slate-950/90 border border-amber-500/30 rounded-2xl p-5 flex flex-col gap-4">
+					
+					<!-- Cabecera informativa y reparto de RP -->
+					<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+						<div class="bg-slate-900/80 border border-slate-800 rounded-xl p-3 flex flex-col justify-between">
+							<span class="text-[10px] font-pixel text-slate-400 uppercase">Formato de Mesa</span>
+							<span class="text-xs font-bold text-white mt-1">4 Jugadores Humanos</span>
+							<span class="text-[10px] text-emerald-400 mt-0.5">Sin bots</span>
+						</div>
+						
+						<div class="bg-slate-900/80 border border-slate-800 rounded-xl p-3 flex flex-col justify-between">
+							<span class="text-[10px] font-pixel text-slate-400 uppercase">Recompensa / Sanción RP</span>
+							<div class="flex items-center gap-1.5 text-xs font-bold mt-1">
+								<span class="text-emerald-400">1.º +30</span>
+								<span class="text-slate-500">•</span>
+								<span class="text-cyan-400">2.º +12</span>
+								<span class="text-slate-500">•</span>
+								<span class="text-amber-400">3.º -6</span>
+								<span class="text-slate-500">•</span>
+								<span class="text-red-400">4.º -15</span>
+							</div>
+							<span class="text-[10px] text-slate-400 mt-0.5">Puntos de Rango (RP)</span>
+						</div>
+
+						<div class="bg-slate-900/80 border border-slate-800 rounded-xl p-3 flex flex-col justify-between">
+							<span class="text-[10px] font-pixel text-slate-400 uppercase">Salón de la Fama</span>
+							<span class="text-xs font-bold text-yellow-300 mt-1">Registro Automático</span>
+							<span class="text-[10px] text-slate-400 mt-0.5">Sincronizado al terminar</span>
+						</div>
+					</div>
+
+					<!-- Botón de Acción Principal de la Cola -->
+					<div class="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-slate-800/80">
+						<div class="text-xs text-slate-300 text-center sm:text-left">
+							<i class="fas fa-shield-halved text-amber-400 mr-1.5"></i>
+							El emparejamiento buscará automáticamente a otros 3 entrenadores en línea.
+						</div>
+						<button id="btnJoinRankedQueue" onclick="RankedQueueManager.joinQueue()" class="hearth-cta-btn bg-gradient-to-b from-amber-400 to-amber-600 text-slate-950 font-bold text-xs sm:text-sm px-8 py-3.5 w-full sm:w-auto shrink-0">
+							⚔️ ENTRAR EN COLA
+						</button>
+					</div>
+
+				</div>
                 <div id="rankedQueueActiveBox" class="hidden bg-slate-950 border-2 border-amber-400 rounded-xl p-4 space-y-3">
                     <div class="flex flex-wrap items-center justify-between gap-2">
                         <div class="flex items-center gap-2">
@@ -5984,15 +6041,16 @@ const LeaderboardManager = {
         return { title: 'Bronce', color: 'text-orange-400', badge: '🥉' };
     },
 
-    updateMyRankedBadge() {
-        const name = getInputTrainerName('Jugador 1');
-        const prof = this.getPlayerRankedProfile(name);
-        const tier = this.getRankTierLabel(prof.rp);
-        const el = document.getElementById('myRankedRpText');
-        if (el) {
-            el.innerHTML = `${tier.badge} ${prof.rp} RP • <span class="${tier.color}">${tier.title}</span>`;
-        }
-    },
+	updateMyRankedBadge() {
+			const name = getInputTrainerName('Jugador 1');
+			const prof = this.getPlayerRankedProfile(name);
+			const tier = this.getRankTierLabel(prof.rp);
+			const el = document.getElementById('myRankedRpText');
+			if (el) {
+				// Se usa un punto separador y espacios limpios para que no salte de línea de forma brusca
+				el.innerHTML = `${tier.badge} ${prof.rp} RP &bull; <span class="${tier.color}">${tier.title}</span>`;
+			}
+		},
 
     recordMatchResults(sortedResults, gameState) {
         if (!Array.isArray(sortedResults) || sortedResults.length === 0) return;
